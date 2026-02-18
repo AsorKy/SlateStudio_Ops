@@ -1,0 +1,149 @@
+{
+  "name": "TimeTracker — New Client Form",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Register New Client",
+        "formDescription": "Add a new client to the TimeTracker system.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Client Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Acme Corp"
+            },
+            {
+              "fieldLabel": "Client Type",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  { "option": "per_project" },
+                  { "option": "retainer" },
+                  { "option": "one_time" }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Client Program",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  { "option": "basic" },
+                  { "option": "standard" },
+                  { "option": "premium" },
+                  { "option": "enterprise" },
+                  { "option": "custom" }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Billing Type",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  { "option": "per_project" },
+                  { "option": "retainer" },
+                  { "option": "monthly" },
+                  { "option": "yearly" }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Client Start Date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes",
+              "fieldType": "textarea",
+              "requiredField": false,
+              "placeholder": "Any relevant context about this client..."
+            }
+          ]
+        },
+        "respondWith": "text",
+        "responseText": "Client registered successfully!",
+        "options": {}
+      },
+      "id": "form-trigger-client",
+      "name": "New Client Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clients (\n  client_name,\n  client_type,\n  client_program,\n  billing_type,\n  client_start_date,\n  notes\n) VALUES (\n  '{{ $json['Client Name'] }}',\n  '{{ $json['Client Type'] }}'::client_type,\n  '{{ $json['Client Program'] }}'::client_program,\n  '{{ $json['Billing Type'] }}'::billing_type,\n  '{{ $json['Client Start Date'] }}'::DATE,\n  NULLIF('{{ $json['Notes'] }}', '')\n)\nRETURNING id, client_name;",
+        "options": {}
+      },
+      "id": "pg-insert-client",
+      "name": "Insert Client",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Client {{ $json.client_name }} created with ID {{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "client-done",
+      "name": "Done",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "New Client Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Client": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "TimeTracker" },
+    { "name": "Forms" }
+  ]
+}

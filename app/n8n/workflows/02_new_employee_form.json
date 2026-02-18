@@ -1,0 +1,214 @@
+{
+  "name": "TimeTracker — New Employee Form",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Register New Employee",
+        "formDescription": "Add a new team member to the TimeTracker system.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Jane Doe"
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "requiredField": true,
+              "placeholder": "jane@slatestudio.com"
+            },
+            {
+              "fieldLabel": "Country Code",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "CO, US, MX, etc. (2-letter ISO code)"
+            },
+            {
+              "fieldLabel": "Country",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Colombia"
+            },
+            {
+              "fieldLabel": "Employment Type",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  { "option": "full_time" },
+                  { "option": "part_time" },
+                  { "option": "contractor" }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Department",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  { "option": "Design" },
+                  { "option": "Video" },
+                  { "option": "Social Media" },
+                  { "option": "Blogs & Written Dev" },
+                  { "option": "Web Development" },
+                  { "option": "Strategy" }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Hire Date",
+              "fieldType": "date",
+              "requiredField": true
+            }
+          ]
+        },
+        "respondWith": "text",
+        "responseText": "Employee registered successfully!",
+        "options": {}
+      },
+      "id": "form-trigger-employee",
+      "name": "New Employee Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO employees (\n  full_name,\n  email,\n  country_code,\n  country,\n  employment_type,\n  department_id,\n  hire_date\n)\nSELECT\n  '{{ $json['Full Name'] }}',\n  '{{ $json['Email'] }}',\n  '{{ $json['Country Code'] }}',\n  '{{ $json['Country'] }}',\n  '{{ $json['Employment Type'] }}'::employment_type,\n  d.id,\n  '{{ $json['Hire Date'] }}'::DATE\nFROM departments d\nWHERE d.name = '{{ $json['Department'] }}'\nRETURNING id, full_name, email;",
+        "options": {}
+      },
+      "id": "pg-insert-employee",
+      "name": "Insert Employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-employee-ok",
+      "name": "Insert Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "={{ $json.full_name }} ({{ $json.email }}) registered successfully.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "emp-success",
+      "name": "Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Failed to insert employee. Check that the department exists.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "emp-error",
+      "name": "Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 400]
+    }
+  ],
+  "connections": {
+    "New Employee Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Employee": {
+      "main": [
+        [
+          {
+            "node": "Insert Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "TimeTracker" },
+    { "name": "Forms" }
+  ]
+}

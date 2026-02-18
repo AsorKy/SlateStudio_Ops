@@ -1,0 +1,241 @@
+{
+  "name": "TimeTracker — Weekly Report (Slack + Email)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "schedule-weekly",
+      "name": "Every Monday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  d.name             AS department,\n  SUM(te.hours)      AS total_hours,\n  COUNT(DISTINCT te.employee_id) AS employees_reporting,\n  COUNT(te.id)       AS entries\nFROM time_entries te\nJOIN employees e  ON e.id = te.employee_id\nJOIN departments d ON d.id = e.department_id\nWHERE te.activity_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'\n  AND te.activity_date <  date_trunc('week', CURRENT_DATE)\nGROUP BY d.name\nORDER BY total_hours DESC;",
+        "options": {}
+      },
+      "id": "pg-dept-hours",
+      "name": "Hours by Department",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 200],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  c.client_name      AS client,\n  c.client_type::TEXT AS type,\n  SUM(te.hours)      AS total_hours,\n  COUNT(DISTINCT te.project_id)  AS projects,\n  COUNT(DISTINCT te.employee_id) AS employees\nFROM time_entries te\nJOIN clients c ON c.id = te.client_id\nWHERE te.activity_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'\n  AND te.activity_date <  date_trunc('week', CURRENT_DATE)\nGROUP BY c.client_name, c.client_type\nORDER BY total_hours DESC;",
+        "options": {}
+      },
+      "id": "pg-client-hours",
+      "name": "Hours by Client",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 400],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  e.full_name        AS employee,\n  d.name             AS department,\n  e.employment_type::TEXT AS type,\n  SUM(te.hours)      AS total_hours,\n  COUNT(DISTINCT te.project_id) AS projects_worked,\n  COUNT(te.id)       AS entries\nFROM time_entries te\nJOIN employees e   ON e.id = te.employee_id\nJOIN departments d ON d.id = e.department_id\nWHERE te.activity_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'\n  AND te.activity_date <  date_trunc('week', CURRENT_DATE)\nGROUP BY e.full_name, d.name, e.employment_type\nORDER BY total_hours DESC;",
+        "options": {}
+      },
+      "id": "pg-employee-hours",
+      "name": "Hours by Employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 600],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "wait"
+      },
+      "id": "merge-reports",
+      "name": "Wait for All Queries",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [800, 400]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Gather results from the three parallel SQL queries\nconst deptRows    = $('Hours by Department').all();\nconst clientRows  = $('Hours by Client').all();\nconst empRows     = $('Hours by Employee').all();\n\nconst weekEnd   = new Date();\nconst weekStart = new Date(weekEnd);\nweekStart.setDate(weekStart.getDate() - 7);\n\nconst fmt = d => d.toISOString().split('T')[0];\n\n// ---- Build Slack markdown (mrkdwn) ----\nlet slack = `*Weekly Hours Report*\\n`;\nslack += `_${fmt(weekStart)} → ${fmt(weekEnd)}_\\n\\n`;\n\n// Department\nslack += `*Hours by Department*\\n`;\nlet deptTotal = 0;\nfor (const r of deptRows) {\n  const h = Number(r.json.total_hours) || 0;\n  deptTotal += h;\n  slack += `• *${r.json.department}*: ${h}h (${r.json.employees_reporting} people, ${r.json.entries} entries)\\n`;\n}\nslack += `_Dept total: ${deptTotal}h_\\n\\n`;\n\n// Client\nslack += `*Hours by Client*\\n`;\nlet clientTotal = 0;\nfor (const r of clientRows) {\n  const h = Number(r.json.total_hours) || 0;\n  clientTotal += h;\n  slack += `• *${r.json.client}* [${r.json.type}]: ${h}h (${r.json.projects} projects, ${r.json.employees} people)\\n`;\n}\nslack += `_Client total: ${clientTotal}h_\\n\\n`;\n\n// Employee\nslack += `*Hours by Employee*\\n`;\nfor (const r of empRows) {\n  const h = Number(r.json.total_hours) || 0;\n  slack += `• *${r.json.employee}* (${r.json.department}, ${r.json.type}): ${h}h across ${r.json.projects_worked} projects\\n`;\n}\n\n// ---- Build HTML email ----\nlet html = `<h2>Weekly Hours Report</h2>`;\nhtml += `<p><em>${fmt(weekStart)} → ${fmt(weekEnd)}</em></p>`;\n\nhtml += `<h3>Hours by Department</h3><table border='1' cellpadding='6' cellspacing='0'>`;\nhtml += `<tr><th>Department</th><th>Hours</th><th>People</th><th>Entries</th></tr>`;\nfor (const r of deptRows) {\n  html += `<tr><td>${r.json.department}</td><td>${r.json.total_hours}</td><td>${r.json.employees_reporting}</td><td>${r.json.entries}</td></tr>`;\n}\nhtml += `<tr><td><strong>Total</strong></td><td><strong>${deptTotal}</strong></td><td></td><td></td></tr></table>`;\n\nhtml += `<h3>Hours by Client</h3><table border='1' cellpadding='6' cellspacing='0'>`;\nhtml += `<tr><th>Client</th><th>Type</th><th>Hours</th><th>Projects</th><th>People</th></tr>`;\nfor (const r of clientRows) {\n  html += `<tr><td>${r.json.client}</td><td>${r.json.type}</td><td>${r.json.total_hours}</td><td>${r.json.projects}</td><td>${r.json.employees}</td></tr>`;\n}\nhtml += `<tr><td><strong>Total</strong></td><td></td><td><strong>${clientTotal}</strong></td><td></td><td></td></tr></table>`;\n\nhtml += `<h3>Hours by Employee</h3><table border='1' cellpadding='6' cellspacing='0'>`;\nhtml += `<tr><th>Employee</th><th>Department</th><th>Type</th><th>Hours</th><th>Projects</th></tr>`;\nfor (const r of empRows) {\n  html += `<tr><td>${r.json.employee}</td><td>${r.json.department}</td><td>${r.json.type}</td><td>${r.json.total_hours}</td><td>${r.json.projects_worked}</td></tr>`;\n}\nhtml += `</table>`;\n\nreturn [\n  {\n    json: {\n      slack_message: slack,\n      email_html: html,\n      email_subject: `TimeTracker Weekly Report — ${fmt(weekStart)} to ${fmt(weekEnd)}`,\n      total_hours: deptTotal\n    }\n  }\n];"
+      },
+      "id": "code-format",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 400]
+    },
+
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "={{ $json.slack_message }}",
+        "otherOptions": {
+          "mrkdwn": true
+        }
+      },
+      "id": "slack-send",
+      "name": "Send Slack Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [1400, 300],
+      "credentials": {
+        "slackApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Slack"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "fromEmail": "timetracker@slatestudio.com",
+        "toEmail": "REPLACE_WITH_RECIPIENT@slatestudio.com",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "html",
+        "html": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "email-send",
+      "name": "Send Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1400, 500],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Monday 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Hours by Department",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hours by Client",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hours by Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hours by Department": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hours by Client": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Queries",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Hours by Employee": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Queries",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Wait for All Queries": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "TimeTracker" },
+    { "name": "Reports" }
+  ]
+}

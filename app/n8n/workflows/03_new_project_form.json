@@ -1,0 +1,179 @@
+{
+  "name": "TimeTracker — New Project Form",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Register New Project",
+        "formDescription": "Create a new project entry in the TimeTracker system.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Project Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Website Redesign Q1"
+            },
+            {
+              "fieldLabel": "Category",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  { "option": "design" },
+                  { "option": "video" },
+                  { "option": "social_media" },
+                  { "option": "blogs_written_dev" },
+                  { "option": "web_dev" },
+                  { "option": "strategy" },
+                  { "option": "other" }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Client Name",
+              "fieldType": "text",
+              "requiredField": true,
+              "placeholder": "Exact client name as registered"
+            },
+            {
+              "fieldLabel": "Estimated Monthly Hours",
+              "fieldType": "number",
+              "requiredField": false,
+              "placeholder": "40"
+            },
+            {
+              "fieldLabel": "Minimum Hours",
+              "fieldType": "number",
+              "requiredField": false,
+              "placeholder": "20"
+            },
+            {
+              "fieldLabel": "Maximum Hours",
+              "fieldType": "number",
+              "requiredField": false,
+              "placeholder": "60"
+            },
+            {
+              "fieldLabel": "Project Start Date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Main Instructions",
+              "fieldType": "textarea",
+              "requiredField": false,
+              "placeholder": "Key operation highlights, deliverables, constraints..."
+            }
+          ]
+        },
+        "respondWith": "text",
+        "responseText": "Project created successfully!",
+        "options": {}
+      },
+      "id": "form-trigger-project",
+      "name": "New Project Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO projects (\n  project_name,\n  category,\n  estimated_hours,\n  minimum_hours,\n  maximum_hours,\n  project_start_date,\n  main_instructions\n) VALUES (\n  '{{ $json['Project Name'] }}',\n  '{{ $json['Category'] }}'::service_category,\n  NULLIF('{{ $json['Estimated Monthly Hours'] }}', '')::NUMERIC,\n  NULLIF('{{ $json['Minimum Hours'] }}', '')::NUMERIC,\n  NULLIF('{{ $json['Maximum Hours'] }}', '')::NUMERIC,\n  '{{ $json['Project Start Date'] }}'::DATE,\n  NULLIF('{{ $json['Main Instructions'] }}', '')\n)\nRETURNING id, project_name;",
+        "options": {}
+      },
+      "id": "pg-insert-project",
+      "name": "Insert Project",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO client_projects (client_id, project_id)\nSELECT c.id, '{{ $json.id }}'::UUID\nFROM clients c\nWHERE c.client_name = '{{ $('New Project Form').item.json['Client Name'] }}'\nRETURNING id;",
+        "options": {}
+      },
+      "id": "pg-link-client-project",
+      "name": "Link Client ↔ Project",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [800, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Project created and linked to client.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "proj-done",
+      "name": "Done",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1100, 300]
+    }
+  ],
+  "connections": {
+    "New Project Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Project": {
+      "main": [
+        [
+          {
+            "node": "Link Client ↔ Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Client ↔ Project": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "TimeTracker" },
+    { "name": "Forms" }
+  ]
+}

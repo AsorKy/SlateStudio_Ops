@@ -1,0 +1,1555 @@
+{
+  "name": "TimeTracker — Weekly Report (Slack + Email)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Register New Employee",
+        "formDescription": "Add a new team member to the TimeTracker system.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Full Name",
+              "placeholder": "Jane Doe",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "placeholder": "jane@slatestudio.com",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Country Code",
+              "placeholder": "CO, US, MX, etc. (2-letter ISO code)",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Country",
+              "placeholder": "Colombia",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Employment Type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "full_time"
+                  },
+                  {
+                    "option": "part_time"
+                  },
+                  {
+                    "option": "contractor"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Department",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Design"
+                  },
+                  {
+                    "option": "Video"
+                  },
+                  {
+                    "option": "Social Media"
+                  },
+                  {
+                    "option": "Blogs & Written Dev"
+                  },
+                  {
+                    "option": "Web Development"
+                  },
+                  {
+                    "option": "Strategy"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Hire Date",
+              "fieldType": "date",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3ba265bd-87b7-45c2-bdbb-16d14bf64bd9",
+      "name": "New Employee Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        608
+      ],
+      "webhookId": "b13af5b3-6303-4557-9d37-5f5ecc2e77ef"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO employees (\n  full_name,\n  email,\n  country_code,\n  country,\n  employment_type,\n  department_id,\n  hire_date\n)\nSELECT\n  '{{ $json['Full Name'] }}',\n  '{{ $json['Email'] }}',\n  '{{ $json['Country Code'] }}',\n  '{{ $json['Country'] }}',\n  '{{ $json['Employment Type'] }}'::employment_type,\n  d.id,\n  '{{ $json['Hire Date'] }}'::DATE\nFROM departments d\nWHERE d.name = '{{ $json['Department'] }}'\nRETURNING id, full_name, email;",
+        "options": {}
+      },
+      "id": "0927b0f2-ead9-4f36-9d95-b56a481b491a",
+      "name": "Insert Employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1088,
+        608
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              },
+              "id": "6fac4718-b521-4e16-af76-e55c23286663"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4729f7fc-b24c-4f72-bef3-be6436bac447",
+      "name": "Insert Succeeded?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "={{ $json.full_name }} ({{ $json.email }}) registered successfully.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e663b567-4fe3-4bb5-a432-0334a0766ded",
+      "name": "Success1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1584,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Failed to insert employee. Check that the department exists.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b3cd8b98-eac5-47a6-b94c-a436e75638c3",
+      "name": "Error1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1584,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1824,
+        848
+      ],
+      "id": "74b26eb2-2ac7-46dc-9bfb-72c871b6cee8",
+      "name": "Bug Alert - Employee",
+      "webhookId": "fcc9a0fa-434f-4ca3-ac09-105509b98532",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "QKYW4vRVl6J9aelH",
+          "name": "Slack account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1824,
+        640
+      ],
+      "id": "e867e383-1195-4691-ad56-ae0bb11043eb",
+      "name": "Bug Alert - Employee1",
+      "webhookId": "7ed0473d-3e2b-409b-adc9-afe9e3e22d07",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "formTitle": "Register New Client",
+        "formDescription": "Add a new client to the TimeTracker system.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Client Name",
+              "placeholder": "Acme Corp",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client Type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "per_project"
+                  },
+                  {
+                    "option": "retainer"
+                  },
+                  {
+                    "option": "one_time"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client Program",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "basic"
+                  },
+                  {
+                    "option": "standard"
+                  },
+                  {
+                    "option": "premium"
+                  },
+                  {
+                    "option": "enterprise"
+                  },
+                  {
+                    "option": "custom"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Billing Type",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "per_project"
+                  },
+                  {
+                    "option": "retainer"
+                  },
+                  {
+                    "option": "monthly"
+                  },
+                  {
+                    "option": "yearly"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client Start Date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Notes",
+              "fieldType": "textarea",
+              "placeholder": "Any relevant context about this client..."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "46aba4e7-3b9f-40e9-8ef7-0275e523d913",
+      "name": "New Client Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        1280
+      ],
+      "webhookId": "aee6e9a6-0247-471f-ba14-806093bbcbe7"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clients (\n  client_name,\n  client_type,\n  client_program,\n  billing_type,\n  client_start_date,\n  notes\n) VALUES (\n  '{{ $json['Client Name'] }}',\n  '{{ $json['Client Type'] }}'::client_type,\n  '{{ $json['Client Program'] }}'::client_program,\n  '{{ $json['Billing Type'] }}'::billing_type,\n  '{{ $json['Client Start Date'] }}'::DATE,\n  NULLIF('{{ $json['Notes'] }}', '')\n)\nRETURNING id, client_name;",
+        "options": {}
+      },
+      "id": "ab6789b1-a2c9-48a5-b8f6-ea918e5637bb",
+      "name": "Insert Client",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1088,
+        1280
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Client {{ $json.client_name }} created with ID {{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "82528e88-b6b4-4b3d-9c2d-17623597e0c8",
+      "name": "Done",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              },
+              "id": "6fac4718-b521-4e16-af76-e55c23286663"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7e28c89a-5f1c-4582-ac60-49a3cc672923",
+      "name": "Insert Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        1280
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## New Employee ingestion pipeline\n\n",
+        "height": 656,
+        "width": 1344,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        704,
+        400
+      ],
+      "typeVersion": 1,
+      "id": "4a4e332e-e36e-4dfe-85f7-d400a7cf4077",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Failed to insert employee. Check that the department exists.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a196dc0a-d8cf-4cbb-8fb9-17c4c31a8ef6",
+      "name": "Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        1392
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1840,
+        1296
+      ],
+      "id": "f63ac3cc-9f37-4d9e-b72a-266c36b69559",
+      "name": "Bug Alert - Client",
+      "webhookId": "7ed0473d-3e2b-409b-adc9-afe9e3e22d07",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1840,
+        1504
+      ],
+      "id": "9df115c8-c29b-40fd-9f73-9740f98519c7",
+      "name": "Bug Alert - Client1",
+      "webhookId": "fcc9a0fa-434f-4ca3-ac09-105509b98532",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "QKYW4vRVl6J9aelH",
+          "name": "Slack account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## New Client ingestion pipeline\n\n",
+        "height": 656,
+        "width": 1344,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        704,
+        1088
+      ],
+      "typeVersion": 1,
+      "id": "9cc01e65-d1a0-49e2-99ce-4cc6e0f823af",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "formTitle": "Register New Project",
+        "formDescription": "Create a new project entry in the TimeTracker system.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Project Name",
+              "placeholder": "Website Redesign Q1",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Category",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "design"
+                  },
+                  {
+                    "option": "video"
+                  },
+                  {
+                    "option": "social_media"
+                  },
+                  {
+                    "option": "blogs_written_dev"
+                  },
+                  {
+                    "option": "web_dev"
+                  },
+                  {
+                    "option": "strategy"
+                  },
+                  {
+                    "option": "other"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client Name",
+              "placeholder": "Exact client name as registered",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Estimated Monthly Hours",
+              "fieldType": "number",
+              "placeholder": "40"
+            },
+            {
+              "fieldLabel": "Minimum Hours",
+              "fieldType": "number",
+              "placeholder": "20"
+            },
+            {
+              "fieldLabel": "Maximum Hours",
+              "fieldType": "number",
+              "placeholder": "60"
+            },
+            {
+              "fieldLabel": "Project Start Date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Main Instructions",
+              "fieldType": "textarea",
+              "placeholder": "Key operation highlights, deliverables, constraints..."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "985e8521-4dc8-42f9-9633-86824437d959",
+      "name": "New Project Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        816,
+        1968
+      ],
+      "webhookId": "a3a04630-e81e-407e-bdc7-531271ddf8c8"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO projects (\n  project_name,\n  category,\n  estimated_hours,\n  minimum_hours,\n  maximum_hours,\n  project_start_date,\n  main_instructions\n) VALUES (\n  '{{ $json['Project Name'] }}',\n  '{{ $json['Category'] }}'::service_category,\n  NULLIF('{{ $json['Estimated Monthly Hours'] }}', '')::NUMERIC,\n  NULLIF('{{ $json['Minimum Hours'] }}', '')::NUMERIC,\n  NULLIF('{{ $json['Maximum Hours'] }}', '')::NUMERIC,\n  '{{ $json['Project Start Date'] }}'::DATE,\n  NULLIF('{{ $json['Main Instructions'] }}', '')\n)\nRETURNING id, project_name;",
+        "options": {}
+      },
+      "id": "d2babc18-1cf5-4e53-a6ba-0089562bf66c",
+      "name": "Insert Project",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        1968
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO client_projects (client_id, project_id)\nSELECT c.id, '{{ $json.id }}'::UUID\nFROM clients c\nWHERE c.client_name = '{{ $('New Project Form').item.json['Client Name'] }}'\nRETURNING id;",
+        "options": {}
+      },
+      "id": "a14200c4-caaf-41c4-8cb1-7482449d577e",
+      "name": "Link Client ↔ Project",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1216,
+        1968
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Project created and linked to client.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "55e75c0e-4ef5-4528-b354-bd1295570d01",
+      "name": "Done1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1632,
+        1872
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## New Project ingestion pipeline\n\n",
+        "height": 656,
+        "width": 1344,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        704,
+        1776
+      ],
+      "typeVersion": 1,
+      "id": "71645ddb-36b8-43ab-a051-2150ac6d5a43",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              },
+              "id": "6fac4718-b521-4e16-af76-e55c23286663"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dd18f241-f857-4726-b68d-574e552cd573",
+      "name": "Insert Succeeded?2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        1968
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg",
+              "name": "message",
+              "value": "Failed to insert employee. Check that the department exists.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "70050ca2-3103-44db-9932-403d9b486dff",
+      "name": "Error2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1632,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        1984
+      ],
+      "id": "9b0f65ea-c296-4539-9c79-1fac7f0fd3f3",
+      "name": "Bug Alert - Client2",
+      "webhookId": "7ed0473d-3e2b-409b-adc9-afe9e3e22d07",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [
+        1856,
+        2192
+      ],
+      "id": "d0e59f62-fa9b-4f4f-bf5a-1445584b1c7c",
+      "name": "Bug Alert - Client3",
+      "webhookId": "fcc9a0fa-434f-4ca3-ac09-105509b98532",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "QKYW4vRVl6J9aelH",
+          "name": "Slack account 3"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## New Client ingestion pipeline\n\n",
+        "height": 656,
+        "width": 1344,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2080,
+        400
+      ],
+      "typeVersion": 1,
+      "id": "b8d0c278-47c2-4e32-a56e-4aeaa3062bb1",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "formTitle": "Report Hours",
+        "formDescription": "Submit your worked hours for a given activity. Fill in all required fields.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Employee Email",
+              "fieldType": "email",
+              "placeholder": "you@slatestudio.com",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Client Name",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "— Load from DB (see setup notes) —"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Project Name",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "— Load from DB (see setup notes) —"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Hours",
+              "fieldType": "number",
+              "placeholder": "2.5",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Activity Date",
+              "fieldType": "date",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Time Frame",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "daily"
+                  },
+                  {
+                    "option": "weekly"
+                  },
+                  {
+                    "option": "monthly"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Activity Description",
+              "fieldType": "textarea",
+              "placeholder": "Brief description of the work done",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Activity Comments",
+              "fieldType": "textarea",
+              "placeholder": "Blockers, highlights, notes..."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "79a6356d-0b17-4af0-bf14-de5fa5a52e61",
+      "name": "Hour Reporting Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        2336,
+        672
+      ],
+      "webhookId": "7814a503-6a25-42cd-b6a4-3ebcc99ca6e0"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO time_entries (\n  employee_id,\n  project_id,\n  client_id,\n  hours,\n  time_frame,\n  activity_date,\n  activity_description,\n  activity_comments\n)\nSELECT\n  e.id,\n  p.id,\n  c.id,\n  {{ $json['Hours'] }}::NUMERIC,\n  '{{ $json['Time Frame'] }}'::time_frame_type,\n  '{{ $json['Activity Date'] }}'::DATE,\n  '{{ $json['Activity Description'] }}',\n  '{{ $json['Activity Comments'] }}'\nFROM employees e\nCROSS JOIN projects p\nCROSS JOIN clients c\nWHERE e.email   = '{{ $json['Employee Email'] }}'\n  AND p.project_name = '{{ $json['Project Name'] }}'\n  AND c.client_name  = '{{ $json['Client Name'] }}'\nRETURNING id, hours, activity_date;",
+        "options": {}
+      },
+      "id": "cb735fa6-68f6-4142-aa6a-dafd4dfc7860",
+      "name": "Insert Time Entry",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2640,
+        672
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "value": "={{ $json.hours }} hours recorded for {{ $('Hour Reporting Form').item.json['Activity Date'] }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6cb1cbbe-acc2-4cf9-85c2-9d397b300915",
+      "name": "Success",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3136,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "09d1c547-255b-46bd-888f-306e4b69ad34",
+      "name": "Insert Succeeded?3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2896,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "value": "Insert failed — check that employee email, project, and client name exist in the database.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4be7b834-e11c-408b-9531-72747a6f2ea0",
+      "name": "Error3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3136,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "c541d862-27bf-4028-b460-3c41ae6b9043",
+      "name": "Every Monday 9 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        2208,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  d.name             AS department,\n  SUM(te.hours)      AS total_hours,\n  COUNT(DISTINCT te.employee_id) AS employees_reporting,\n  COUNT(te.id)       AS entries\nFROM time_entries te\nJOIN employees e  ON e.id = te.employee_id\nJOIN departments d ON d.id = e.department_id\nWHERE te.activity_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'\n  AND te.activity_date <  date_trunc('week', CURRENT_DATE)\nGROUP BY d.name\nORDER BY total_hours DESC;",
+        "options": {}
+      },
+      "id": "ba626b1b-2c21-437e-b9f4-cb10190abfe9",
+      "name": "Hours by Department",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2496,
+        1200
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  c.client_name      AS client,\n  c.client_type::TEXT AS type,\n  SUM(te.hours)      AS total_hours,\n  COUNT(DISTINCT te.project_id)  AS projects,\n  COUNT(DISTINCT te.employee_id) AS employees\nFROM time_entries te\nJOIN clients c ON c.id = te.client_id\nWHERE te.activity_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'\n  AND te.activity_date <  date_trunc('week', CURRENT_DATE)\nGROUP BY c.client_name, c.client_type\nORDER BY total_hours DESC;",
+        "options": {}
+      },
+      "id": "feed41ea-a445-4df8-a17b-1505e0673ca7",
+      "name": "Hours by Client",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2496,
+        1408
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  e.full_name        AS employee,\n  d.name             AS department,\n  e.employment_type::TEXT AS type,\n  SUM(te.hours)      AS total_hours,\n  COUNT(DISTINCT te.project_id) AS projects_worked,\n  COUNT(te.id)       AS entries\nFROM time_entries te\nJOIN employees e   ON e.id = te.employee_id\nJOIN departments d ON d.id = e.department_id\nWHERE te.activity_date >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days'\n  AND te.activity_date <  date_trunc('week', CURRENT_DATE)\nGROUP BY e.full_name, d.name, e.employment_type\nORDER BY total_hours DESC;",
+        "options": {}
+      },
+      "id": "460a6673-a224-472f-9b32-0a36bfdca68f",
+      "name": "Hours by Employee",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        2496,
+        1600
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "wait"
+      },
+      "id": "48e97fd7-2a89-4598-8a6e-89339db6f62a",
+      "name": "Wait for All Queries",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2800,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gather results from the three parallel SQL queries\nconst deptRows    = $('Hours by Department').all();\nconst clientRows  = $('Hours by Client').all();\nconst empRows     = $('Hours by Employee').all();\n\nconst weekEnd   = new Date();\nconst weekStart = new Date(weekEnd);\nweekStart.setDate(weekStart.getDate() - 7);\n\nconst fmt = d => d.toISOString().split('T')[0];\n\n// ---- Build Slack markdown (mrkdwn) ----\nlet slack = `*Weekly Hours Report*\\n`;\nslack += `_${fmt(weekStart)} → ${fmt(weekEnd)}_\\n\\n`;\n\n// Department\nslack += `*Hours by Department*\\n`;\nlet deptTotal = 0;\nfor (const r of deptRows) {\n  const h = Number(r.json.total_hours) || 0;\n  deptTotal += h;\n  slack += `• *${r.json.department}*: ${h}h (${r.json.employees_reporting} people, ${r.json.entries} entries)\\n`;\n}\nslack += `_Dept total: ${deptTotal}h_\\n\\n`;\n\n// Client\nslack += `*Hours by Client*\\n`;\nlet clientTotal = 0;\nfor (const r of clientRows) {\n  const h = Number(r.json.total_hours) || 0;\n  clientTotal += h;\n  slack += `• *${r.json.client}* [${r.json.type}]: ${h}h (${r.json.projects} projects, ${r.json.employees} people)\\n`;\n}\nslack += `_Client total: ${clientTotal}h_\\n\\n`;\n\n// Employee\nslack += `*Hours by Employee*\\n`;\nfor (const r of empRows) {\n  const h = Number(r.json.total_hours) || 0;\n  slack += `• *${r.json.employee}* (${r.json.department}, ${r.json.type}): ${h}h across ${r.json.projects_worked} projects\\n`;\n}\n\n// ---- Build HTML email ----\nlet html = `<h2>Weekly Hours Report</h2>`;\nhtml += `<p><em>${fmt(weekStart)} → ${fmt(weekEnd)}</em></p>`;\n\nhtml += `<h3>Hours by Department</h3><table border='1' cellpadding='6' cellspacing='0'>`;\nhtml += `<tr><th>Department</th><th>Hours</th><th>People</th><th>Entries</th></tr>`;\nfor (const r of deptRows) {\n  html += `<tr><td>${r.json.department}</td><td>${r.json.total_hours}</td><td>${r.json.employees_reporting}</td><td>${r.json.entries}</td></tr>`;\n}\nhtml += `<tr><td><strong>Total</strong></td><td><strong>${deptTotal}</strong></td><td></td><td></td></tr></table>`;\n\nhtml += `<h3>Hours by Client</h3><table border='1' cellpadding='6' cellspacing='0'>`;\nhtml += `<tr><th>Client</th><th>Type</th><th>Hours</th><th>Projects</th><th>People</th></tr>`;\nfor (const r of clientRows) {\n  html += `<tr><td>${r.json.client}</td><td>${r.json.type}</td><td>${r.json.total_hours}</td><td>${r.json.projects}</td><td>${r.json.employees}</td></tr>`;\n}\nhtml += `<tr><td><strong>Total</strong></td><td></td><td><strong>${clientTotal}</strong></td><td></td><td></td></tr></table>`;\n\nhtml += `<h3>Hours by Employee</h3><table border='1' cellpadding='6' cellspacing='0'>`;\nhtml += `<tr><th>Employee</th><th>Department</th><th>Type</th><th>Hours</th><th>Projects</th></tr>`;\nfor (const r of empRows) {\n  html += `<tr><td>${r.json.employee}</td><td>${r.json.department}</td><td>${r.json.type}</td><td>${r.json.total_hours}</td><td>${r.json.projects_worked}</td></tr>`;\n}\nhtml += `</table>`;\n\nreturn [\n  {\n    json: {\n      slack_message: slack,\n      email_html: html,\n      email_subject: `TimeTracker Weekly Report — ${fmt(weekStart)} to ${fmt(weekEnd)}`,\n      total_hours: deptTotal\n    }\n  }\n];"
+      },
+      "id": "6edf3815-7f02-4d30-a332-92100057cf3a",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3104,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_CHANNEL_ID",
+          "mode": "id"
+        },
+        "text": "={{ $json.slack_message }}",
+        "otherOptions": {
+          "mrkdwn": true
+        }
+      },
+      "id": "9ac3a3a3-99f0-4081-927c-7a2236248fd5",
+      "name": "Send Slack Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        3408,
+        1296
+      ],
+      "webhookId": "0ebeea7e-19f0-4998-9990-c7d666b84fc6",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "timetracker@slatestudio.com",
+        "toEmail": "REPLACE_WITH_RECIPIENT@slatestudio.com",
+        "subject": "={{ $json.email_subject }}",
+        "html": "={{ $json.email_html }}",
+        "options": {}
+      },
+      "id": "cc2b64e6-4df6-4d38-8241-44b594b2669a",
+      "name": "Send Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        3408,
+        1504
+      ],
+      "webhookId": "bdc2fdd8-7251-400c-b4b4-69fb40370ebc",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## New Client ingestion pipeline\n\n",
+        "height": 800,
+        "width": 1584,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        2080,
+        1088
+      ],
+      "typeVersion": 1,
+      "id": "d13c5c46-0818-48d8-8650-8240dffd25ad",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {
+    "New Employee Form": [
+      {
+        "json": {
+          "Full Name": "Martin Perez",
+          "Email": "martinp@gmail.com",
+          "Country Code": "CO",
+          "Country": "Colombia",
+          "Employment Type": "full_time",
+          "Department": "Web Development",
+          "Hire Date": "2026-02-17",
+          "submittedAt": "2026-02-17T20:53:22.561-05:00",
+          "formMode": "test"
+        }
+      }
+    ],
+    "New Client Form": [
+      {
+        "json": {
+          "Client Name": "The Super Wow client",
+          "Client Type": "retainer",
+          "Client Program": "premium",
+          "Billing Type": "retainer",
+          "Client Start Date": "2026-02-17",
+          "Notes": "this is a  new client test",
+          "submittedAt": "2026-02-17T21:01:55.914-05:00",
+          "formMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Insert Client": [
+      {
+        "json": {
+          "id": "5ba975fa-b9bc-4a15-92dc-40a490c8ea33",
+          "client_name": "The Super Wow client"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "New Project Form": [
+      {
+        "json": {
+          "Project Name": "Super project test",
+          "Category": "social_media",
+          "Client Name": "The Super Wow client",
+          "Estimated Monthly Hours": 60,
+          "Minimum Hours": 12,
+          "Maximum Hours": 80,
+          "Project Start Date": "2026-02-17",
+          "Main Instructions": "this is a test",
+          "submittedAt": "2026-02-17T21:10:16.806-05:00",
+          "formMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Insert Project": [
+      {
+        "json": {
+          "id": "9fc064ed-9596-4383-b9e1-59b835a20333",
+          "project_name": "Super project test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ],
+    "Link Client ↔ Project": [
+      {
+        "json": {
+          "id": "a730baa0-d960-47a9-8658-9c89662d05e2"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "New Employee Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Employee": {
+      "main": [
+        [
+          {
+            "node": "Insert Succeeded?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Succeeded?1": {
+      "main": [
+        [
+          {
+            "node": "Success1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error1": {
+      "main": [
+        [
+          {
+            "node": "Bug Alert - Employee1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bug Alert - Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bug Alert - Employee1": {
+      "main": [
+        []
+      ]
+    },
+    "New Client Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Client": {
+      "main": [
+        [
+          {
+            "node": "Insert Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error": {
+      "main": [
+        [
+          {
+            "node": "Bug Alert - Client",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bug Alert - Client1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Project Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Project": {
+      "main": [
+        [
+          {
+            "node": "Link Client ↔ Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Link Client ↔ Project": {
+      "main": [
+        [
+          {
+            "node": "Insert Succeeded?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Succeeded?2": {
+      "main": [
+        [
+          {
+            "node": "Done1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error2": {
+      "main": [
+        [
+          {
+            "node": "Bug Alert - Client2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bug Alert - Client3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hour Reporting Form": {
+      "main": [
+        [
+          {
+            "node": "Insert Time Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Time Entry": {
+      "main": [
+        [
+          {
+            "node": "Insert Succeeded?3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Succeeded?3": {
+      "main": [
+        [
+          {
+            "node": "Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every Monday 9 AM": {
+      "main": [
+        [
+          {
+            "node": "Hours by Department",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hours by Client",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hours by Employee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hours by Department": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hours by Client": {
+      "main": [
+        [
+          {
+            "node": "Wait for All Queries",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for All Queries": {
+      "main": [
+        [
+          {
+            "node": "Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Report",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0d0a1cc4-bd76-4ba9-ba74-d61cbe937aa5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "47a369a1ce1673d71cc17e924bd866435a6417177439555dd82d74b29e1e5d51"
+  },
+  "id": "GA27IOts3ltbmYob",
+  "tags": [
+    {
+      "name": "TimeTracker",
+      "id": "T03lKdxK9TMPGuDg",
+      "updatedAt": "2026-02-18T01:38:18.657Z",
+      "createdAt": "2026-02-18T01:38:18.657Z"
+    },
+    {
+      "name": "Forms",
+      "id": "ijbHsIGvtPUibW4Q",
+      "updatedAt": "2026-02-18T01:38:18.695Z",
+      "createdAt": "2026-02-18T01:38:18.695Z"
+    },
+    {
+      "name": "Reports",
+      "id": "fJcEfVnQSnxUIjA1",
+      "updatedAt": "2026-02-18T02:17:38.611Z",
+      "createdAt": "2026-02-18T02:17:38.611Z"
+    }
+  ]
+}

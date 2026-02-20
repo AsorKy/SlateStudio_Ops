@@ -1,0 +1,385 @@
+{
+  "name": "TimeTracker - Prod",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "custom-form-options",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "831043ae-c198-4806-8972-8f2e69c9aa5c",
+      "name": "Webhook — GET Options",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "REPLACE_WITH_UNIQUE_ID"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT json_agg(full_name ORDER BY full_name)\n   FROM employees\n   WHERE is_active = true) AS employees,\n  (SELECT json_agg(client_name ORDER BY client_name)\n   FROM clients\n   WHERE status = 'active') AS clients,\n  (SELECT json_agg(project_name ORDER BY project_name)\n   FROM projects\n   WHERE status = 'active') AS projects;",
+        "options": {}
+      },
+      "id": "d856ad8a-0f73-4f05-92b2-1e6ab07d07c2",
+      "name": "Fetch Options from DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        304,
+        0
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure json_agg values are proper arrays (not serialised strings)\nconst row = $input.first().json;\n\nconst toArray = v =>\n  Array.isArray(v) ? v :\n  typeof v === 'string' ? JSON.parse(v) : [];\n\nreturn [{\n  json: {\n    employees: toArray(row.employees),\n    clients:   toArray(row.clients),\n    projects:  toArray(row.projects)\n  }\n}];"
+      },
+      "id": "5fce5481-b49c-4c50-912a-8d4b55e55bc9",
+      "name": "Ensure Arrays",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-cache"
+              }
+            ]
+          }
+        }
+      },
+      "id": "d3125696-1e66-426e-999a-59912043aa42",
+      "name": "Return JSON Options",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "custom-form",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "67c4e984-4df7-44f2-b75d-c7c20e02e067",
+      "name": "Webhook — POST Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        432
+      ],
+      "webhookId": "REPLACE_WITH_UNIQUE_ID"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO time_entries (\n  employee_id,\n  project_id,\n  client_id,\n  hours,\n  time_frame,\n  activity_date,--activity_date,\n  activity_start,\n  activity_end,\n  activity_description,\n  activity_comments\n)\nSELECT\n  e.id,\n  p.id,\n  c.id,\n  {{ $json.body.hours }}::NUMERIC,\n  '{{ $json.body.time_frame }}'::time_frame_type,\n  '{{ $json.body.report_date }}'::DATE,\n  '{{ $json.body.activity_start }}'::DATE,\n  '{{ $json.body.activity_end }}'::DATE,\n  '{{ $json.body.activity_description }}',\n  '{{ $json.body.activity_comments }}'\nFROM employees e\nCROSS JOIN projects p\nCROSS JOIN clients c\nWHERE e.full_name    = '{{ $json.body.employee_name }}'\n  AND p.project_name = '{{ $json.body.project_name }}'\n  AND c.client_name  = '{{ $json.body.client_name }}'\nRETURNING id, hours, activity_date;",
+        "options": {}
+      },
+      "id": "354593b0-7805-42c7-9a17-97b8cc226add",
+      "name": "Insert Time Entry",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        304,
+        432
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "ATGUBRyLtyBMYiem",
+          "name": "Postgress_TimeTracking"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bf6591d5-5158-4ecf-a9b7-83187e307a79",
+      "name": "Insert Succeeded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        544,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'success', message: $json.hours + ' hours recorded for ' + $json.activity_date + '. Thank you!' }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "7c5557a9-f17f-4e35-b3e9-b5145027b27e",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"status\": \"error\", \"message\": \"Failed to record hours. Verify that your name, client, and project exist and are active in the system.\"}",
+        "options": {
+          "responseCode": 422,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "38b2a8a7-899e-4022-8547-540fa2ebb688",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## GET Database Information\nThis flow sends data to Vercel HTML form in order to populate dropdown lists for user confort.",
+        "height": 288,
+        "width": 1120,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        -96
+      ],
+      "typeVersion": 1,
+      "id": "e77bbc31-597d-4f66-9323-49e95b3e06e1",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## POST Operation Times\nThis flow sends data from Vercel Form and populates Slate Studio databases.",
+        "height": 464,
+        "width": 1120,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -112,
+        240
+      ],
+      "typeVersion": 1,
+      "id": "bbbc7280-f501-4653-b977-01d52531b45c",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {
+    "Webhook — POST Submit": [
+      {
+        "json": {
+          "headers": {
+            "host": "slatestudio.app.n8n.cloud",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+            "content-length": "290",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "accept-language": "es-419,es;q=0.5",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "181.140.49.203",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "CO",
+            "cf-ray": "9d0b6eeeb441a407-MIA",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "origin": "https://slate-studio-727tlv5in-techdev-4054s-projects.vercel.app",
+            "priority": "u=1, i",
+            "referer": "https://slate-studio-727tlv5in-techdev-4054s-projects.vercel.app/",
+            "sec-ch-ua": "\"Not:A-Brand\";v=\"99\", \"Brave\";v=\"145\", \"Chromium\";v=\"145\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "sec-gpc": "1",
+            "x-forwarded-for": "181.140.49.203, 172.68.7.55",
+            "x-forwarded-host": "slatestudio.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-82-6b58d578cf-wmj82",
+            "x-is-trusted": "yes",
+            "x-real-ip": "181.140.49.203"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "employee_name": "Camila Torres",
+            "client_name": "Greenfield Corp",
+            "project_name": "Greenfield Brand Refresh",
+            "hours": 10,
+            "report_date": "2026-02-20",
+            "activity_start": "2026-02-20",
+            "activity_end": "2026-03-31",
+            "time_frame": "weekly",
+            "activity_description": "TEEEEEST",
+            "activity_comments": "TEEEEEST"
+          },
+          "webhookUrl": "https://slatestudio.app.n8n.cloud/webhook/custom-form",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook — GET Options": {
+      "main": [
+        [
+          {
+            "node": "Fetch Options from DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Options from DB": {
+      "main": [
+        [
+          {
+            "node": "Ensure Arrays",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ensure Arrays": {
+      "main": [
+        [
+          {
+            "node": "Return JSON Options",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook — POST Submit": {
+      "main": [
+        [
+          {
+            "node": "Insert Time Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Time Entry": {
+      "main": [
+        [
+          {
+            "node": "Insert Succeeded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Succeeded?": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "caec4eed-9d7e-4318-8438-8a234e32defc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "47a369a1ce1673d71cc17e924bd866435a6417177439555dd82d74b29e1e5d51"
+  },
+  "id": "5NkOWZJWNY6beMG5",
+  "tags": []
+}

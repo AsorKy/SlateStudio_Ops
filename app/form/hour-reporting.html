@@ -438,13 +438,13 @@
           </div>
 
           <div class="field">
-            <label for="activity_start">Activity Start Date</label>
-            <input type="date" id="activity_start" name="activity_start" />
+            <label for="activity_start">Activity Start Date <span class="req">*</span></label>
+            <input type="date" id="activity_start" name="activity_start" required />
           </div>
 
           <div class="field">
-            <label for="activity_end">Activity End Date</label>
-            <input type="date" id="activity_end" name="activity_end" />
+            <label for="activity_end">Activity End Date <span class="req">*</span></label>
+            <input type="date" id="activity_end" name="activity_end" required />
           </div>
 
           <div class="field">
@@ -617,8 +617,8 @@
         project_name:         form.project_name.value,
         hours:                parseFloat(form.hours.value),
         report_date:          form.report_date.value,
-        activity_start:       form.activity_start.value || null,
-        activity_end:         form.activity_end.value   || null,
+        activity_start:       form.activity_start.value,
+        activity_end:         form.activity_end.value,
         time_frame:           form.time_frame.value,
         activity_description: form.activity_description.value.trim(),
         activity_comments:    form.activity_comments.value.trim()

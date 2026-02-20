@@ -427,14 +427,24 @@
 
         <div class="grid">
           <div class="field">
-            <label for="activity_date">Activity Date <span class="req">*</span></label>
-            <input type="date" id="activity_date" name="activity_date" required />
+            <label for="report_date">Report Date <span class="req">*</span></label>
+            <input type="date" id="report_date" name="report_date" required />
           </div>
 
           <div class="field">
             <label for="hours">Hours Worked <span class="req">*</span></label>
             <input type="number" id="hours" name="hours"
                    step="0.5" min="0.5" max="24" placeholder="2.5" required />
+          </div>
+
+          <div class="field">
+            <label for="activity_start">Activity Start Date</label>
+            <input type="date" id="activity_start" name="activity_start" />
+          </div>
+
+          <div class="field">
+            <label for="activity_end">Activity End Date</label>
+            <input type="date" id="activity_end" name="activity_end" />
           </div>
 
           <div class="field">
@@ -552,7 +562,7 @@
 
     function resetForm() {
       form.reset();
-      form.activity_date.value = todayISO();
+      form.report_date.value = todayISO();
       clearToast();
     }
 
@@ -606,7 +616,9 @@
         client_name:          form.client_name.value,
         project_name:         form.project_name.value,
         hours:                parseFloat(form.hours.value),
-        activity_date:        form.activity_date.value,
+        report_date:          form.report_date.value,
+        activity_start:       form.activity_start.value || null,
+        activity_end:         form.activity_end.value   || null,
         time_frame:           form.time_frame.value,
         activity_description: form.activity_description.value.trim(),
         activity_comments:    form.activity_comments.value.trim()
@@ -622,7 +634,7 @@
 
         if (res.ok) {
           showToast('ok', data.message ||
-            `${payload.hours}h submitted for ${payload.activity_date}. Thank you.`);
+            `${payload.hours}h submitted for ${payload.report_date}. Thank you.`);
           resetForm();
         } else {
           showToast('err', data.message ||
@@ -642,7 +654,7 @@
     btnReset.addEventListener('click', resetForm);
 
     document.addEventListener('DOMContentLoaded', () => {
-      form.activity_date.value = todayISO();
+      form.report_date.value = todayISO();
       loadOptions();
     });
   </script>

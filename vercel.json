@@ -1,0 +1,10 @@
+{
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "",
+  "outputDirectory": "app/form",
+  "routes": [
+    { "src": "/", "dest": "/hour-reporting.html" },
+    { "src": "/hour-reporting", "dest": "/hour-reporting.html" }
+  ]
+}

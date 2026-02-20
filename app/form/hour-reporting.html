@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TimeTracker — SlateStudio</title>
+  <title>Time Tracker — The Slate Studio</title>
 
   <!-- Playfair Display: heritage serif for headers -->
   <!-- Inter: geometric sans-serif for all functional UI -->
@@ -27,6 +27,8 @@
       --olive:   #8e8e74;
       --terra:   #c27a61;
       --terra-d: #ae6b53;  /* hover / pressed terracotta */
+      --warm-gray: #8A7D73;  /* warm taupe — tagline, subtle accents */
+      --muted-og:  #908E73;  /* muted olive-gray — decorative accents */
 
       /* Surfaces */
       --bg:      #3b494d;  /* page canvas */
@@ -77,12 +79,22 @@
     .wordmark {
       display: inline-block;
       font-family: 'Inter', sans-serif;
-      font-size: 9.5px;
+      font-size: 11.5px;
       font-weight: 600;
       letter-spacing: .26em;
       text-transform: uppercase;
-      color: var(--olive);
-      margin-bottom: 20px;
+      color: #c0bfaa;
+      margin-bottom: 5px;
+    }
+
+    .studio-tag {
+      font-size: 12.5px;
+      font-weight: 300;
+      font-style: italic;
+      letter-spacing: .03em;
+      color: #b8b0a6;
+      margin-bottom: 22px;
+      opacity: 0.92;
     }
 
     .page-header h1 {
@@ -112,8 +124,10 @@
     .card {
       background: var(--card);
       border: 1px solid var(--bdr);
+      border-top: 2px solid rgba(194, 122, 97, 0.28);
       border-radius: 4px;
       padding: 42px 48px 48px;
+      background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 68px);
     }
 
     /* ─── Loading banner ──────────────────────────── */
@@ -173,7 +187,7 @@
     .section-rule {
       flex: 1;
       height: 1px;
-      background: var(--bdr);
+      background: linear-gradient(to right, rgba(194, 122, 97, 0.22), rgba(144, 142, 115, 0.22));
     }
 
     /* ─── Grid layout ─────────────────────────────── */
@@ -359,8 +373,9 @@
 
     <!-- ── Page header ──────────────────────────────── -->
     <header class="page-header">
-      <p class="wordmark">SlateStudio</p>
-      <h1>Report <em>Hours</em></h1>
+      <p class="wordmark">The Slate Studio</p>
+      <p class="studio-tag">Interviews made for you.</p>
+      <h1>Time <em>Tracker</em></h1>
       <p class="sub">Log your worked hours for the selected activity date.</p>
     </header>
 
@@ -475,7 +490,7 @@
 
     </div><!-- /.card -->
 
-    <footer>TimeTracker &nbsp;&middot;&nbsp; SlateStudio Internal Tool</footer>
+    <footer>The Slate Studio &nbsp;&middot;&nbsp; Time Tracker</footer>
 
   </div><!-- /.shell -->
 

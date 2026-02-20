@@ -1,0 +1,100 @@
+{
+  "name": "TimeTracker — Custom Form Options (GET)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "custom-form-options",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-get-options",
+      "name": "Webhook — GET Options",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "REPLACE_WITH_UNIQUE_ID"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n  (SELECT json_agg(full_name ORDER BY full_name)\n   FROM employees\n   WHERE is_active = true) AS employees,\n  (SELECT json_agg(client_name ORDER BY client_name)\n   FROM clients\n   WHERE status = 'active') AS clients,\n  (SELECT json_agg(project_name ORDER BY project_name)\n   FROM projects\n   WHERE status = 'active') AS projects;",
+        "options": {}
+      },
+      "id": "pg-fetch-options",
+      "name": "Fetch Options from DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure json_agg values are proper arrays (not serialised strings)\nconst row = $input.first().json;\n\nconst toArray = v =>\n  Array.isArray(v) ? v :\n  typeof v === 'string' ? JSON.parse(v) : [];\n\nreturn [{\n  json: {\n    employees: toArray(row.employees),\n    clients:   toArray(row.clients),\n    projects:  toArray(row.projects)\n  }\n}];"
+      },
+      "id": "code-parse-options",
+      "name": "Ensure Arrays",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Access-Control-Allow-Headers", "value": "Content-Type" },
+              { "name": "Cache-Control", "value": "no-cache" }
+            ]
+          }
+        }
+      },
+      "id": "respond-options",
+      "name": "Return JSON Options",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook — GET Options": {
+      "main": [
+        [
+          { "node": "Fetch Options from DB", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Options from DB": {
+      "main": [
+        [
+          { "node": "Ensure Arrays", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Ensure Arrays": {
+      "main": [
+        [
+          { "node": "Return JSON Options", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "TimeTracker" },
+    { "name": "API" }
+  ]
+}

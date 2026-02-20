@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SlateStudio — Report Hours</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:            #f0f2f5;
+      --card:          #ffffff;
+      --border:        #dde1e7;
+      --text:          #111827;
+      --muted:         #6b7280;
+      --label:         #374151;
+      --primary:       #2563eb;
+      --primary-h:     #1d4ed8;
+      --input-bg:      #f9fafb;
+      --input-focus:   #eff6ff;
+      --ok-bg:         #ecfdf5;
+      --ok-border:     #6ee7b7;
+      --ok-text:       #065f46;
+      --err-bg:        #fef2f2;
+      --err-border:    #fca5a5;
+      --err-text:      #991b1b;
+      --warn-bg:       #fffbeb;
+      --warn-border:   #fcd34d;
+      --warn-text:     #92400e;
+      --radius:        10px;
+      --shadow:        0 1px 4px rgba(0,0,0,.07), 0 6px 18px rgba(0,0,0,.06);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 16px 60px;
+    }
+
+    /* ─── Page shell ─────────────────────────────────────── */
+    .shell {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    /* ─── Header ─────────────────────────────────────────── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .wordmark svg { opacity: .55; }
+
+    .page-header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      color: var(--text);
+    }
+
+    .page-header p {
+      margin-top: 5px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* ─── Card ───────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 36px 36px;
+    }
+
+    /* ─── Status banner ──────────────────────────────────── */
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 24px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      color: var(--warn-text);
+    }
+
+    .banner.hidden  { display: none; }
+    .banner.ok      { background: var(--ok-bg);  border-color: var(--ok-border);  color: var(--ok-text); }
+    .banner.err     { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); }
+
+    .spin {
+      width: 14px; height: 14px; flex-shrink: 0;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Section labels ─────────────────────────────────── */
+    .section {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 9px;
+      border-bottom: 1px solid var(--border);
+      margin: 26px 0 16px;
+    }
+
+    .section:first-of-type { margin-top: 0; }
+
+    /* ─── Grid ───────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 18px;
+    }
+
+    .col-2 { grid-column: 1 / -1; }
+
+    /* ─── Field ──────────────────────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 5px; }
+
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--label);
+      user-select: none;
+    }
+
+    label .req { color: #ef4444; margin-left: 2px; }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      transition: border-color .15s, background .15s, box-shadow .15s;
+      appearance: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: var(--input-focus);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+
+    select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    select:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      background-color: #f3f4f6;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      line-height: 1.6;
+    }
+
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    /* ─── Submit row ─────────────────────────────────────── */
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-top: 28px;
+      gap: 12px;
+    }
+
+    .btn-reset {
+      font-size: 13px;
+      color: var(--muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px 4px;
+      transition: color .15s;
+    }
+
+    .btn-reset:hover { color: var(--text); }
+
+    .btn-submit {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 11px 26px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+    }
+
+    .btn-submit:hover:not(:disabled) { background: var(--primary-h); }
+    .btn-submit:disabled { opacity: .55; cursor: not-allowed; }
+
+    .btn-submit .s-spin {
+      display: none;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    .btn-submit.loading .s-spin  { display: block; }
+    .btn-submit.loading .s-icon  { display: none; }
+    .btn-submit.loading .s-label { opacity: .75; }
+
+    /* ─── Result toast ───────────────────────────────────── */
+    #toast {
+      margin-top: 16px;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+      display: none;
+    }
+
+    #toast.ok  { display: block; background: var(--ok-bg);  border: 1px solid var(--ok-border);  color: var(--ok-text); }
+    #toast.err { display: block; background: var(--err-bg); border: 1px solid var(--err-border); color: var(--err-text); }
+
+    /* ─── Footer ─────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      margin-top: 22px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ─── Responsive ─────────────────────────────────────── */
+    @media (max-width: 540px) {
+      .card { padding: 22px 18px 26px; }
+      .grid { grid-template-columns: 1fr; }
+      .col-2 { grid-column: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- Header -->
+    <header class="page-header">
+      <div class="wordmark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        SlateStudio
+      </div>
+      <h1>Report Hours</h1>
+      <p>Log your worked hours for the selected activity date.</p>
+    </header>
+
+    <!-- Card -->
+    <div class="card">
+
+      <!-- Loading / status banner -->
+      <div class="banner" id="banner">
+        <div class="spin"></div>
+        <span id="banner-text">Loading team data from the database…</span>
+      </div>
+
+      <form id="hour-form" novalidate autocomplete="off">
+
+        <!-- ─ WHO & WHERE ──────────────────────────────── -->
+        <p class="section">Who &amp; Where</p>
+        <div class="grid">
+
+          <div class="field">
+            <label for="employee_name">Your Name <span class="req">*</span></label>
+            <select id="employee_name" name="employee_name" required disabled>
+              <option value="">— Loading… —</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="client_name">Client <span class="req">*</span></label>
+            <select id="client_name" name="client_name" required disabled>
+              <option value="">— Loading… —</option>
+            </select>
+          </div>
+
+          <div class="field col-2">
+            <label for="project_name">Project <span class="req">*</span></label>
+            <select id="project_name" name="project_name" required disabled>
+              <option value="">— Loading… —</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- ─ WHEN & HOW MUCH ────────────────────────── -->
+        <p class="section">When &amp; How Much</p>
+        <div class="grid">
+
+          <div class="field">
+            <label for="activity_date">Activity Date <span class="req">*</span></label>
+            <input type="date" id="activity_date" name="activity_date" required />
+          </div>
+
+          <div class="field">
+            <label for="hours">Hours Worked <span class="req">*</span></label>
+            <input type="number" id="hours" name="hours"
+                   step="0.5" min="0.5" max="24" placeholder="2.5" required />
+          </div>
+
+          <div class="field">
+            <label for="time_frame">Time Frame <span class="req">*</span></label>
+            <select id="time_frame" name="time_frame" required>
+              <option value="">— Select —</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- ─ WHAT WAS DONE ──────────────────────────── -->
+        <p class="section">What Was Done</p>
+        <div class="grid">
+
+          <div class="field col-2">
+            <label for="activity_description">Activity Description <span class="req">*</span></label>
+            <textarea id="activity_description" name="activity_description"
+                      placeholder="Brief description of the work completed…" required></textarea>
+          </div>
+
+          <div class="field col-2">
+            <label for="activity_comments">Comments / Notes</label>
+            <textarea id="activity_comments" name="activity_comments"
+                      placeholder="Blockers, highlights, context…"></textarea>
+          </div>
+
+        </div>
+
+        <!-- ─ Actions ──────────────────────────────────── -->
+        <div class="actions">
+          <button type="button" class="btn-reset" id="btn-reset">Clear form</button>
+          <button type="submit" class="btn-submit" id="btn-submit">
+            <div class="s-spin"></div>
+            <svg class="s-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span class="s-label">Submit Hours</span>
+          </button>
+        </div>
+
+      </form>
+
+      <!-- Result toast -->
+      <div id="toast"></div>
+
+    </div><!-- /.card -->
+
+    <footer>SlateStudio Time Tracker &nbsp;·&nbsp; Powered by N8N &amp; Supabase</footer>
+
+  </div><!-- /.shell -->
+
+  <script>
+    /* ═══════════════════════════════════════════════════════════
+       Configuration
+    ═══════════════════════════════════════════════════════════ */
+    const OPTIONS_URL = 'https://slatestudio.app.n8n.cloud/webhook/custom-form-options';
+    const SUBMIT_URL  = 'https://slatestudio.app.n8n.cloud/webhook/custom-form';
+
+    /* ═══════════════════════════════════════════════════════════
+       DOM refs
+    ═══════════════════════════════════════════════════════════ */
+    const form      = document.getElementById('hour-form');
+    const banner    = document.getElementById('banner');
+    const bannerTxt = document.getElementById('banner-text');
+    const btnSubmit = document.getElementById('btn-submit');
+    const btnReset  = document.getElementById('btn-reset');
+    const toast     = document.getElementById('toast');
+
+    /* ═══════════════════════════════════════════════════════════
+       Helpers
+    ═══════════════════════════════════════════════════════════ */
+    function todayISO() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function fillSelect(id, items) {
+      const sel = document.getElementById(id);
+      sel.innerHTML = '<option value="">— Select —</option>';
+      (items || []).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      sel.disabled = false;
+    }
+
+    function setBanner(state, text) {
+      // state: 'loading' | 'ok' | 'err' | 'hidden'
+      banner.className = state === 'hidden' ? 'banner hidden'
+                       : state === 'ok'     ? 'banner ok'
+                       : state === 'err'    ? 'banner err'
+                       : 'banner';
+
+      const spinEl = banner.querySelector('.spin');
+      if (spinEl) spinEl.style.display = state === 'loading' ? 'block' : 'none';
+      bannerTxt.textContent = text || '';
+    }
+
+    function showToast(type, msg) {
+      toast.className = type === 'ok' ? 'ok' : 'err';
+      toast.textContent = (type === 'ok' ? '✓  ' : '✗  ') + msg;
+      toast.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (type === 'ok') setTimeout(clearToast, 9000);
+    }
+
+    function clearToast() {
+      toast.className = '';
+      toast.textContent = '';
+    }
+
+    function resetForm() {
+      form.reset();
+      form.activity_date.value = todayISO();
+      clearToast();
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Load dynamic dropdown options
+    ═══════════════════════════════════════════════════════════ */
+    async function loadOptions() {
+      setBanner('loading', 'Loading team data from the database…');
+      try {
+        const res = await fetch(OPTIONS_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const employees = Array.isArray(data.employees) ? data.employees
+                        : typeof data.employees === 'string' ? JSON.parse(data.employees) : [];
+        const clients   = Array.isArray(data.clients)   ? data.clients
+                        : typeof data.clients   === 'string' ? JSON.parse(data.clients)   : [];
+        const projects  = Array.isArray(data.projects)  ? data.projects
+                        : typeof data.projects  === 'string' ? JSON.parse(data.projects)  : [];
+
+        fillSelect('employee_name', employees);
+        fillSelect('client_name',   clients);
+        fillSelect('project_name',  projects);
+
+        setBanner('hidden');
+      } catch (err) {
+        setBanner('err', '⚠  Could not load team data. Refresh the page or contact support.');
+        console.error('[TimeTracker] loadOptions error:', err);
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       Form submission
+    ═══════════════════════════════════════════════════════════ */
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      clearToast();
+
+      // Basic client-side validation
+      for (const el of form.querySelectorAll('[required]')) {
+        if (!el.value.trim()) {
+          el.focus();
+          showToast('err', `Please fill in the required field: ${el.labels?.[0]?.textContent?.replace('*','').trim() || el.name}`);
+          return;
+        }
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.classList.add('loading');
+
+      const payload = {
+        employee_name:        form.employee_name.value,
+        client_name:          form.client_name.value,
+        project_name:         form.project_name.value,
+        hours:                parseFloat(form.hours.value),
+        activity_date:        form.activity_date.value,
+        time_frame:           form.time_frame.value,
+        activity_description: form.activity_description.value.trim(),
+        activity_comments:    form.activity_comments.value.trim()
+      };
+
+      try {
+        const res  = await fetch(SUBMIT_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload)
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          showToast('ok', data.message
+            || `${payload.hours}h submitted for ${payload.activity_date}. Thank you!`);
+          resetForm();
+        } else {
+          showToast('err', data.message
+            || 'Submission failed. Check your inputs and try again.');
+        }
+      } catch {
+        showToast('err', 'Network error. Check your connection and try again.');
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.classList.remove('loading');
+      }
+    });
+
+    /* ═══════════════════════════════════════════════════════════
+       Reset button
+    ═══════════════════════════════════════════════════════════ */
+    btnReset.addEventListener('click', resetForm);
+
+    /* ═══════════════════════════════════════════════════════════
+       Init
+    ═══════════════════════════════════════════════════════════ */
+    document.addEventListener('DOMContentLoaded', () => {
+      form.activity_date.value = todayISO();
+      loadOptions();
+    });
+  </script>
+</body>
+</html>

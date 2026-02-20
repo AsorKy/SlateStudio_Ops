@@ -219,10 +219,26 @@ All have `assigned_at` (DATE) and `removed_at` (DATE, NULL = active).
 | `03_new_project_form.json` | Create project + link to client | `projects` + `client_projects` |
 | `04_new_client_form.json` | Register new client | `clients` |
 
-**Hour Reporting Logic (01):**
-1. Employee submits email + client + project + hours + date + description
-2. N8N uses a single `SELECT … FROM employees CROSS JOIN projects CROSS JOIN clients WHERE email=… AND project_name=… AND client_name=…` to resolve IDs and INSERT into `time_entries`
-3. IF node checks RETURNING id — success or error response
+**Hour Reporting Logic (01) — 2-page multi-step form:**
+
+*Page 1 (Form Trigger, static):* Hours, Activity Date, Time Frame, Description, Comments
+→ `responseMode: "responseNode"` holds the session open for page 2
+
+*Between pages (workflow executes):*
+- `Fetch Dropdown Options` (Postgres): single `json_agg` query returns active employees, clients, projects in one shot
+- `Format Dropdown Options` (Code): converts arrays to `[{ option: name }]` format
+
+*Page 2 (Form node, dynamic dropdowns):*
+- Employee Name — `={{ $json.employeeOptions }}`
+- Client Name — `={{ $json.clientOptions }}`
+- Project Name — `={{ $json.projectOptions }}`
+
+*After page 2 submission:*
+- INSERT resolves IDs by `full_name` / `project_name` / `client_name` (not by email)
+- Page 1 data referenced as: `$('Hour Reporting Form').first().json['Hours']` etc.
+- IF node checks RETURNING id — success or error Set node
+
+**Important:** Employee lookup is now by `full_name`, not by email.
 
 ### Weekly Report Workflow (scheduled)
 
@@ -251,7 +267,7 @@ All have `assigned_at` (DATE) and `removed_at` (DATE, NULL = active).
 - `minimum_hours <= maximum_hours`
 - `estimated_hours BETWEEN minimum_hours AND maximum_hours` if provided
 - `project_end_date >= project_start_date` if not NULL
-- Employee lookup in forms is done **by email** (unique, not by UUID)
+- Employee lookup in `01_hour_reporting_form` is done **by full_name** (dynamic dropdown, selected by user — changed from email after multi-page redesign)
 - Client/Project lookup in forms is done **by name** (display values from dropdowns)
 
 ---

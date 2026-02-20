@@ -3,36 +3,11 @@
   "nodes": [
     {
       "parameters": {
-        "formTitle": "Report Hours",
-        "formDescription": "Submit your worked hours for a given activity. Fill in all required fields.",
+        "formTitle": "Report Hours — Step 1 of 2",
+        "formDescription": "Fill in your activity details. Your name, client, and project will be loaded dynamically in the next step.",
+        "responseMode": "responseNode",
         "formFields": {
           "values": [
-            {
-              "fieldLabel": "Employee Email",
-              "fieldType": "email",
-              "requiredField": true,
-              "placeholder": "you@slatestudio.com"
-            },
-            {
-              "fieldLabel": "Client Name",
-              "fieldType": "dropdown",
-              "requiredField": true,
-              "fieldOptions": {
-                "values": [
-                  { "option": "— Load from DB (see setup notes) —" }
-                ]
-              }
-            },
-            {
-              "fieldLabel": "Project Name",
-              "fieldType": "dropdown",
-              "requiredField": true,
-              "fieldOptions": {
-                "values": [
-                  { "option": "— Load from DB (see setup notes) —" }
-                ]
-              }
-            },
             {
               "fieldLabel": "Hours",
               "fieldType": "number",
@@ -70,8 +45,6 @@
             }
           ]
         },
-        "respondWith": "text",
-        "responseText": "Hours submitted successfully. Thank you!",
         "options": {}
       },
       "id": "form-trigger-hours",
@@ -83,14 +56,82 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO time_entries (\n  employee_id,\n  project_id,\n  client_id,\n  hours,\n  time_frame,\n  activity_date,\n  activity_description,\n  activity_comments\n)\nSELECT\n  e.id,\n  p.id,\n  c.id,\n  {{ $json['Hours'] }}::NUMERIC,\n  '{{ $json['Time Frame'] }}'::time_frame_type,\n  '{{ $json['Activity Date'] }}'::DATE,\n  '{{ $json['Activity Description'] }}',\n  '{{ $json['Activity Comments'] }}'\nFROM employees e\nCROSS JOIN projects p\nCROSS JOIN clients c\nWHERE e.email   = '{{ $json['Employee Email'] }}'\n  AND p.project_name = '{{ $json['Project Name'] }}'\n  AND c.client_name  = '{{ $json['Client Name'] }}'\nRETURNING id, hours, activity_date;",
+        "query": "SELECT\n  (SELECT json_agg(full_name ORDER BY full_name)\n   FROM employees\n   WHERE is_active = true) AS employees,\n  (SELECT json_agg(client_name ORDER BY client_name)\n   FROM clients\n   WHERE status = 'active') AS clients,\n  (SELECT json_agg(project_name ORDER BY project_name)\n   FROM projects\n   WHERE status = 'active') AS projects;",
+        "options": {}
+      },
+      "id": "pg-fetch-options",
+      "name": "Fetch Dropdown Options",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [500, 300],
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert the json_agg arrays returned by Postgres into\n// the { option: string }[] format that N8N form dropdowns expect.\nconst row = $input.first().json;\n\nconst toOptions = arr => (arr || []).map(name => ({ option: name }));\n\nreturn [{\n  json: {\n    employeeOptions: toOptions(row.employees),\n    clientOptions:   toOptions(row.clients),\n    projectOptions:  toOptions(row.projects)\n  }\n}];"
+      },
+      "id": "code-format-options",
+      "name": "Format Dropdown Options",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "formTitle": "Report Hours — Step 2 of 2",
+        "formDescription": "Select your name and the client and project you worked on.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Employee Name",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": "={{ $json.employeeOptions }}"
+              }
+            },
+            {
+              "fieldLabel": "Client Name",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": "={{ $json.clientOptions }}"
+              }
+            },
+            {
+              "fieldLabel": "Project Name",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": "={{ $json.projectOptions }}"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "form-page-2",
+      "name": "Select Employee, Client & Project",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO time_entries (\n  employee_id,\n  project_id,\n  client_id,\n  hours,\n  time_frame,\n  activity_date,\n  activity_description,\n  activity_comments\n)\nSELECT\n  e.id,\n  p.id,\n  c.id,\n  {{ $('Hour Reporting Form').first().json['Hours'] }}::NUMERIC,\n  '{{ $('Hour Reporting Form').first().json['Time Frame'] }}'::time_frame_type,\n  '{{ $('Hour Reporting Form').first().json['Activity Date'] }}'::DATE,\n  '{{ $('Hour Reporting Form').first().json['Activity Description'] }}',\n  '{{ $('Hour Reporting Form').first().json['Activity Comments'] }}'\nFROM employees e\nCROSS JOIN projects p\nCROSS JOIN clients c\nWHERE e.full_name    = '{{ $json[''Employee Name''] }}'\n  AND p.project_name = '{{ $json[''Project Name''] }}'\n  AND c.client_name  = '{{ $json[''Client Name''] }}'\nRETURNING id, hours, activity_date;",
         "options": {}
       },
       "id": "pg-insert-hours",
       "name": "Insert Time Entry",
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
-      "position": [500, 300],
+      "position": [1300, 300],
       "credentials": {
         "postgres": {
           "id": "REPLACE_WITH_CREDENTIAL_ID",
@@ -123,99 +164,77 @@
       "name": "Insert Succeeded?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [750, 300]
+      "position": [1550, 300]
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "status",
-              "name": "status",
-              "value": "success",
-              "type": "string"
-            },
-            {
-              "id": "message",
-              "name": "message",
-              "value": "={{ $json.hours }} hours recorded for {{ $('Hour Reporting Form').item.json['Activity Date'] }}",
-              "type": "string"
-            }
-          ]
-        },
+        "respondWith": "text",
+        "responseText": "={{ $('Insert Time Entry').first().json.hours }} hours recorded for {{ $('Hour Reporting Form').first().json['Activity Date'] }}. Thank you!",
         "options": {}
       },
       "id": "success-response",
-      "name": "Success",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [1000, 200]
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1800, 200]
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "status",
-              "name": "status",
-              "value": "error",
-              "type": "string"
-            },
-            {
-              "id": "message",
-              "name": "message",
-              "value": "Insert failed — check that employee email, project, and client name exist in the database.",
-              "type": "string"
-            }
-          ]
-        },
+        "respondWith": "text",
+        "responseText": "Failed to record hours. Make sure your name, client, and project are registered in the system.",
+        "responseCode": 422,
         "options": {}
       },
       "id": "error-response",
-      "name": "Error",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [1000, 400]
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1800, 400]
     }
   ],
   "connections": {
     "Hour Reporting Form": {
       "main": [
         [
-          {
-            "node": "Insert Time Entry",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Fetch Dropdown Options", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Fetch Dropdown Options": {
+      "main": [
+        [
+          { "node": "Format Dropdown Options", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Format Dropdown Options": {
+      "main": [
+        [
+          { "node": "Select Employee, Client & Project", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Select Employee, Client & Project": {
+      "main": [
+        [
+          { "node": "Insert Time Entry", "type": "main", "index": 0 }
         ]
       ]
     },
     "Insert Time Entry": {
       "main": [
         [
-          {
-            "node": "Insert Succeeded?",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Insert Succeeded?", "type": "main", "index": 0 }
         ]
       ]
     },
     "Insert Succeeded?": {
       "main": [
         [
-          {
-            "node": "Success",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Respond Success", "type": "main", "index": 0 }
         ],
         [
-          {
-            "node": "Error",
-            "type": "main",
-            "index": 0
-          }
+          { "node": "Respond Error", "type": "main", "index": 0 }
         ]
       ]
     }

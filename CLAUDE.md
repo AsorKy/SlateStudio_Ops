@@ -10,7 +10,7 @@
 - **Name:** TimeTracker
 - **Owner:** SlateStudio
 - **Goal:** Track employee operation hours and report weekly/monthly by project, client, department, and employee.
-- **Stack:** Supabase (PostgreSQL) · N8N (automation/forms/reports) · Slack · Email (SMTP)
+- **Stack:** Supabase (PostgreSQL) · N8N Cloud (automation/webhooks/reports) · Custom HTML Form · Vercel (form hosting) · Slack · Email (SMTP)
 
 ---
 
@@ -22,6 +22,7 @@ TimeTracker/
 ├── README.md
 ├── ProjectCredentials.txt             ← secrets (never commit)
 ├── .gitignore
+├── vercel.json                        ← Vercel static deployment config
 ├── data/                              ← placeholder, unused
 ├── sql/
 │   ├── 000_run_all.sql                ← master migration runner
@@ -37,15 +38,20 @@ TimeTracker/
 │   ├── 010_rls_policies.sql           ← Row Level Security
 │   ├── 011_report_queries.sql         ← standalone ad-hoc reports
 │   └── 012_seed_dummy_data.sql        ← 4 weeks of demo data
-└── app/n8n/
-    ├── SETUP.md
-    └── workflows/
-        ├── 01_hour_reporting_form.json
-        ├── 02_new_employee_form.json
-        ├── 03_new_project_form.json
-        ├── 04_new_client_form.json
-        ├── 05_weekly_report.json
-        └── TimeTracker — Weekly Report (Slack + Email).json
+└── app/
+    ├── form/
+    │   └── hour-reporting.html        ← custom HTML form (deployed to Vercel)
+    └── n8n/
+        ├── SETUP.md
+        └── workflows/
+            ├── 01_hour_reporting_form.json        ← N8N multi-page form (internal)
+            ├── 02_new_employee_form.json
+            ├── 03_new_project_form.json
+            ├── 04_new_client_form.json
+            ├── 05_weekly_report.json
+            ├── 06_custom_form_options.json        ← GET webhook: returns dropdown data
+            ├── 07_custom_form_submit.json         ← POST webhook: inserts time entry
+            └── TimeTracker — Weekly Report (Slack + Email).json
 ```
 
 ---
@@ -240,6 +246,51 @@ All have `assigned_at` (DATE) and `removed_at` (DATE, NULL = active).
 
 **Important:** Employee lookup is now by `full_name`, not by email.
 
+### Custom Form Webhook Workflows (06 & 07)
+
+These two workflows back the standalone HTML form at `app/form/hour-reporting.html`.
+
+#### `06_custom_form_options.json` — GET `/webhook/custom-form-options`
+
+**Purpose:** Returns active employees, clients, and projects as JSON arrays so the HTML form can populate its dropdowns on page load.
+
+**Pipeline:**
+1. Webhook trigger (GET, `path: "custom-form-options"`, `allowedOrigins: "*"`)
+2. Postgres: `SELECT json_agg(...)` for employees, clients, projects in a single query
+3. Code node: ensures arrays are proper JS arrays (not JSON strings)
+4. `respondToWebhook` (JSON): returns `{ employees: [...], clients: [...], projects: [...] }`
+
+**Response headers:** `Access-Control-Allow-Origin: *`, `Cache-Control: no-cache`
+
+#### `07_custom_form_submit.json` — POST `/webhook/custom-form`
+
+**Purpose:** Receives the HTML form's JSON payload and inserts a row into `time_entries`.
+
+**Payload shape (from form):**
+```json
+{
+  "employee_name": "Camila Torres",
+  "client_name": "Greenfield Corp",
+  "project_name": "Greenfield Brand Refresh",
+  "hours": 2.5,
+  "activity_date": "2025-02-19",
+  "time_frame": "daily",
+  "activity_description": "...",
+  "activity_comments": "..."
+}
+```
+
+**Pipeline:**
+1. Webhook trigger (POST, `path: "custom-form"`, `allowedOrigins: "*"`)
+2. Postgres: INSERT resolving IDs by `full_name`, `project_name`, `client_name` — RETURNING id, hours, activity_date
+3. IF: `$json.id` exists?
+4. True → `respondToWebhook` JSON 200: `{ status: "success", message: "X hours recorded for date" }`
+5. False → `respondToWebhook` JSON 422: `{ status: "error", message: "..." }`
+
+**Production URL:** `https://slatestudio.app.n8n.cloud/webhook/custom-form`
+
+---
+
 ### Weekly Report Workflow (scheduled)
 
 **File:** `05_weekly_report.json` / `TimeTracker — Weekly Report (Slack + Email).json`
@@ -255,6 +306,83 @@ All have `assigned_at` (DATE) and `removed_at` (DATE, NULL = active).
 - `REPLACE_WITH_CHANNEL_ID` — Slack channel ID
 - `REPLACE_WITH_RECIPIENT@slatestudio.com` — email recipient(s)
 - `timetracker@slatestudio.com` — sender address
+
+---
+
+## Custom HTML Form (`app/form/hour-reporting.html`)
+
+Standalone self-contained HTML/CSS/JS page — no framework, no build step. Deployed to Vercel as a static file.
+
+### Fields
+
+| Section | Field | Type | Source |
+|---------|-------|------|--------|
+| Who & Where | Employee Name | dropdown | Dynamic — loaded from DB via GET webhook |
+| Who & Where | Client | dropdown | Dynamic — loaded from DB via GET webhook |
+| Who & Where | Project | dropdown | Dynamic — loaded from DB via GET webhook |
+| When & How Much | Activity Date | date | Static (defaults to today) |
+| When & How Much | Hours Worked | number (step 0.5) | Static |
+| When & How Much | Time Frame | dropdown | Static: daily / weekly / monthly |
+| What Was Done | Activity Description | textarea | Static |
+| What Was Done | Comments / Notes | textarea | Static (optional) |
+
+### JavaScript Flow
+
+1. `DOMContentLoaded` → sets date to today → calls `loadOptions()`
+2. `loadOptions()` → `fetch(OPTIONS_URL)` (GET `/webhook/custom-form-options`) → fills the three dropdowns, enables them
+3. On submit → validates required fields → `fetch(SUBMIT_URL, { method: 'POST', body: JSON })` → shows success/error toast
+4. On success → resets form, sets date back to today
+
+### Constants in the HTML file
+
+```js
+const OPTIONS_URL = 'https://slatestudio.app.n8n.cloud/webhook/custom-form-options';
+const SUBMIT_URL  = 'https://slatestudio.app.n8n.cloud/webhook/custom-form';
+```
+
+If either URL changes, update both constants at the top of the `<script>` block.
+
+---
+
+## Vercel Deployment
+
+**Platform:** [vercel.com](https://vercel.com) — static hosting
+**Config file:** `vercel.json` (project root)
+**Source:** GitHub repo → `main` branch → auto-deploys on push
+
+### `vercel.json` settings
+
+```json
+{
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "",
+  "outputDirectory": "app/form",
+  "routes": [
+    { "src": "/", "dest": "/hour-reporting.html" },
+    { "src": "/hour-reporting", "dest": "/hour-reporting.html" }
+  ]
+}
+```
+
+- `framework: null` — disables Angular/Next/etc. auto-detection (previously caused `ng: command not found` error)
+- `outputDirectory: "app/form"` — only the `hour-reporting.html` file is served; the rest of the repo (sql/, n8n/) is NOT exposed
+- Routes: `/` and `/hour-reporting` both serve the form
+
+### Vercel Dashboard Settings (must match)
+
+Go to **Project → Settings → Build & Development Settings**:
+
+| Setting | Value |
+|---------|-------|
+| Framework Preset | **Other** |
+| Build Command | *(blank)* |
+| Output Directory | *(blank — controlled by vercel.json)* |
+| Install Command | *(blank)* |
+
+### Deployment Trigger
+
+Any `git push` to `main` triggers a new Vercel deployment automatically.
 
 ---
 
@@ -295,9 +423,9 @@ All have `assigned_at` (DATE) and `removed_at` (DATE, NULL = active).
 
 ## Future Enhancements (Backlog Ideas)
 
-- Dynamic dropdown loading in N8N forms (query DB for active clients/projects)
 - Monthly report workflow (parallel to weekly, triggered on 1st of month)
 - Dashboard in Supabase Studio or external BI tool (Metabase, Retool)
 - Slack slash command for on-demand reports
-- Employee self-service view of own hours
 - Approval workflow for time entries
+- Project filter in the HTML form: show only projects linked to the selected client
+- Authentication on the HTML form (e.g. Supabase Auth or a simple shared password)

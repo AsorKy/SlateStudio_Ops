@@ -16,8 +16,9 @@ Employee time tracking and reporting system for SlateStudio. Track hours per emp
   - [4. Import Workflows](#4-import-workflows)
   - [5. Update Workflow Placeholders](#5-update-workflow-placeholders)
   - [6. Activate Workflows](#6-activate-workflows)
+  - [7. Deploy the Custom HTML Form (Vercel)](#7-deploy-the-custom-html-form-vercel)
 - [How It Works](#how-it-works)
-  - [Logging Hours](#logging-hours)
+  - [Logging Hours — Custom HTML Form](#logging-hours--custom-html-form)
   - [Adding Employees, Clients, and Projects](#adding-employees-clients-and-projects)
   - [Weekly Report](#weekly-report)
 - [Database Schema](#database-schema)
@@ -46,31 +47,40 @@ Reports are delivered automatically every Monday morning via **Slack** and **Ema
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                     N8N                             │
-│                                                     │
-│  Form Workflows          Report Workflow            │
-│  ┌──────────────┐        ┌─────────────────────┐   │
-│  │ Hour Logging │        │ Schedule: Mon 9 AM  │   │
-│  │ New Employee │──────▶ │ Query DB → Format   │   │
-│  │ New Project  │        │ Slack + Email out   │   │
-│  │ New Client   │        └─────────────────────┘   │
-│  └──────────────┘                                   │
-│         │                                           │
-└─────────┼───────────────────────────────────────────┘
-          │ INSERT / SELECT
-          ▼
-┌─────────────────────────────┐
-│    Supabase (PostgreSQL)    │
-│                             │
-│  Dimensions: departments,   │
-│  clients, employees,        │
-│  projects                   │
-│                             │
-│  Fact: time_entries         │
-│                             │
-│  Views: 9 reporting views   │
-└─────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│           Vercel (Static Hosting)                                │
+│   app/form/hour-reporting.html                                   │
+│                                                                  │
+│   On load:  GET  /webhook/custom-form-options ──┐                │
+│   On submit: POST /webhook/custom-form ─────────┤                │
+└─────────────────────────────────────────────────┼────────────────┘
+                                                  │
+┌─────────────────────────────────────────────────▼────────────────┐
+│                   N8N Cloud (slatestudio.app.n8n.cloud)          │
+│                                                                  │
+│  Webhook Workflows                  Report Workflow              │
+│  ┌────────────────────────┐         ┌──────────────────────┐    │
+│  │ 06: GET options        │         │ Schedule: Mon 9 AM   │    │
+│  │ 07: POST submit        │         │ Query → Slack/Email  │    │
+│  │ 01: N8N form (internal)│         └──────────────────────┘    │
+│  │ 02: New Employee       │                                      │
+│  │ 03: New Project        │                                      │
+│  │ 04: New Client         │                                      │
+│  └────────────┬───────────┘                                      │
+└───────────────┼──────────────────────────────────────────────────┘
+                │ INSERT / SELECT
+                ▼
+┌───────────────────────────────┐
+│    Supabase (PostgreSQL)      │
+│                               │
+│  Dimensions: departments,     │
+│  clients, employees,          │
+│  projects                     │
+│                               │
+│  Fact: time_entries           │
+│                               │
+│  Views: 9 reporting views     │
+└───────────────────────────────┘
 ```
 
 ---
@@ -80,7 +90,9 @@ Reports are delivered automatically every Monday morning via **Slack** and **Ema
 | Tool | Minimum Version | Purpose |
 |------|----------------|---------|
 | [Supabase](https://supabase.com) account | — | PostgreSQL database |
-| [N8N](https://n8n.io) instance | v1.0+ | Workflow automation (self-hosted or cloud) |
+| [N8N](https://n8n.io) instance | v1.0+ | Workflow automation — cloud recommended |
+| [Vercel](https://vercel.com) account | — | Static hosting for the HTML form |
+| GitHub repository | — | Source for Vercel auto-deploy |
 | Slack workspace | — | Report delivery |
 | SMTP account | — | Email report delivery (Gmail, SendGrid, SES, etc.) |
 
@@ -193,13 +205,15 @@ You need three credential types in N8N. Navigate to **Settings → Credentials �
 1. In N8N, go to **Workflows → Import from File**
 2. Import each JSON file from `app/n8n/workflows/`:
 
-   | File | Function |
-   |------|---------|
-   | `01_hour_reporting_form.json` | Employee hour logging form |
-   | `02_new_employee_form.json` | New employee registration |
-   | `03_new_project_form.json` | New project creation |
-   | `04_new_client_form.json` | New client registration |
-   | `05_weekly_report.json` | Automated weekly report |
+   | File | Function | Type |
+   |------|---------|------|
+   | `01_hour_reporting_form.json` | N8N multi-page hour logging form (internal) | N8N Form Trigger |
+   | `02_new_employee_form.json` | New employee registration | N8N Form Trigger |
+   | `03_new_project_form.json` | New project creation | N8N Form Trigger |
+   | `04_new_client_form.json` | New client registration | N8N Form Trigger |
+   | `05_weekly_report.json` | Automated weekly report | Scheduled |
+   | `06_custom_form_options.json` | GET endpoint — returns dropdown data for the HTML form | Webhook (GET) |
+   | `07_custom_form_submit.json` | POST endpoint — receives and inserts HTML form submissions | Webhook (POST) |
 
 ---
 
@@ -235,25 +249,77 @@ The client and project dropdowns in `01_hour_reporting_form.json` are currently 
 
 1. Open each workflow in N8N
 2. Toggle the **Active** switch in the top-right corner
-3. For form-based workflows, N8N will display a **form URL** — share this URL with your team
+3. Workflows `06` and `07` must be active before the HTML form can load data or submit entries
+
+---
+
+### 7. Deploy the Custom HTML Form (Vercel)
+
+The HTML form lives at `app/form/hour-reporting.html` and is deployed as a static site on Vercel.
+
+#### First-time setup
+
+1. Push the repository to GitHub (if not already done)
+2. Go to [vercel.com](https://vercel.com) → **Add New Project** → Import your GitHub repo
+3. In **Build & Development Settings**, set:
+   - **Framework Preset:** Other
+   - **Build Command:** *(leave blank)*
+   - **Output Directory:** *(leave blank)*
+   - **Install Command:** *(leave blank)*
+4. Click **Deploy**
+
+The `vercel.json` at the project root handles everything automatically:
+
+```json
+{
+  "framework": null,
+  "buildCommand": "",
+  "installCommand": "",
+  "outputDirectory": "app/form",
+  "routes": [
+    { "src": "/", "dest": "/hour-reporting.html" },
+    { "src": "/hour-reporting", "dest": "/hour-reporting.html" }
+  ]
+}
+```
+
+#### Re-deploys
+
+Every `git push` to `main` triggers an automatic re-deploy. No manual steps needed.
+
+#### Troubleshooting
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `ng: command not found` | Vercel detected Angular (wrong preset) | Set Framework to **Other** in dashboard settings |
+| Dropdowns show "Loading…" forever | Workflow 06 is not active | Activate `06_custom_form_options.json` in N8N |
+| Submit returns network error | Workflow 07 is not active | Activate `07_custom_form_submit.json` in N8N |
 
 ---
 
 ## How It Works
 
-### Logging Hours
+### Logging Hours — Custom HTML Form
 
-Employees open the form URL from `01_hour_reporting_form.json` and submit:
+Employees open the Vercel URL (e.g. `https://your-project.vercel.app`) and:
 
-- Their email address (used to look up their employee record)
-- Client name and project name
-- Hours worked
-- Date of activity
-- Time frame (daily / weekly / monthly)
-- Description of work done
-- Optional comments / blockers
+1. The page loads and immediately calls the **GET options webhook**, populating three dropdowns from the live database:
+   - **Your Name** — all active employees
+   - **Client** — all active clients
+   - **Project** — all active projects
 
-N8N resolves employee, client, and project IDs from the names/email, then inserts a row into `time_entries`.
+2. The employee fills in the remaining fields:
+   - Activity Date (defaults to today)
+   - Hours Worked
+   - Time Frame (daily / weekly / monthly)
+   - Activity Description (required)
+   - Comments / Notes (optional)
+
+3. On submit, the form POSTs JSON to the **POST submit webhook**, which resolves the employee/client/project IDs and inserts a row into `time_entries`.
+
+4. A success or error message appears inline — no page reload.
+
+> **N8N internal form (`01_hour_reporting_form.json`)** is also available as a secondary entry point via the N8N-hosted form URL. It uses the same 2-page multi-step approach with dynamic dropdowns.
 
 ### Adding Employees, Clients, and Projects
 
@@ -340,13 +406,25 @@ WHERE iso_year = 2025 AND iso_week = 7;
 
 ```
 TimeTracker/
-├── sql/                    Database migration scripts (run in order)
-├── app/n8n/workflows/      N8N workflow JSON files (import into N8N)
-├── app/n8n/SETUP.md        N8N-specific setup notes
-├── data/                   Reserved for future data exports
+├── vercel.json             Vercel static deployment config (no build step)
 ├── CLAUDE.md               AI assistant context bank
 ├── README.md               This file
-└── ProjectCredentials.txt  API keys and secrets (NEVER commit)
+├── ProjectCredentials.txt  API keys and secrets (NEVER commit)
+├── sql/                    Database migration scripts (run in order 001–010)
+├── data/                   Reserved for future data exports
+└── app/
+    ├── form/
+    │   └── hour-reporting.html   Custom HTML form → deployed to Vercel
+    └── n8n/
+        ├── SETUP.md
+        └── workflows/
+            ├── 01_hour_reporting_form.json   N8N multi-page form (internal)
+            ├── 02_new_employee_form.json
+            ├── 03_new_project_form.json
+            ├── 04_new_client_form.json
+            ├── 05_weekly_report.json         Scheduled Monday 9 AM
+            ├── 06_custom_form_options.json   GET webhook → dropdown data
+            └── 07_custom_form_submit.json    POST webhook → insert time entry
 ```
 
 ---

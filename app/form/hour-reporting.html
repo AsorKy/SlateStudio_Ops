@@ -3,296 +3,371 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SlateStudio — Report Hours</title>
+  <title>TimeTracker — SlateStudio</title>
+
+  <!-- Playfair Display: heritage serif for headers -->
+  <!-- Inter: geometric sans-serif for all functional UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ═══════════════════════════════════════════════
+       COLOUR SYSTEM
+       Deep Slate  #3b494d  — page canvas
+       Dark Gray   #565b5e  — structural containers
+       Muted Olive #8e8e74  — secondary text, borders
+       Terracotta  #c27a61  — interaction pulse
+    ═══════════════════════════════════════════════ */
     :root {
-      --bg:            #f0f2f5;
-      --card:          #ffffff;
-      --border:        #dde1e7;
-      --text:          #111827;
-      --muted:         #6b7280;
-      --label:         #374151;
-      --primary:       #2563eb;
-      --primary-h:     #1d4ed8;
-      --input-bg:      #f9fafb;
-      --input-focus:   #eff6ff;
-      --ok-bg:         #ecfdf5;
-      --ok-border:     #6ee7b7;
-      --ok-text:       #065f46;
-      --err-bg:        #fef2f2;
-      --err-border:    #fca5a5;
-      --err-text:      #991b1b;
-      --warn-bg:       #fffbeb;
-      --warn-border:   #fcd34d;
-      --warn-text:     #92400e;
-      --radius:        10px;
-      --shadow:        0 1px 4px rgba(0,0,0,.07), 0 6px 18px rgba(0,0,0,.06);
+      --slate:   #3b494d;
+      --gray:    #565b5e;
+      --olive:   #8e8e74;
+      --terra:   #c27a61;
+      --terra-d: #ae6b53;  /* hover / pressed terracotta */
+
+      /* Surfaces */
+      --bg:      #3b494d;  /* page canvas */
+      --card:    #565b5e;  /* form card */
+      --well:    #2e3b3f;  /* input fields — sunken / tactile */
+
+      /* Text */
+      --t-head:  #eae3d5;  /* headings — warm off-white */
+      --t-body:  #cbc4b4;  /* body copy */
+      --t-label: #aaaa8e;  /* field labels */
+      --t-ph:    rgba(142, 136, 100, 0.48); /* placeholders */
+
+      /* Borders */
+      --bdr:     rgba(142, 142, 116, 0.22);
+      --bdr-h:   rgba(142, 142, 116, 0.40);
+      --bdr-f:   #c27a61;  /* focus ring — terracotta */
+
+      /* Feedback */
+      --ok-bg:   rgba(100, 120, 80, 0.22);
+      --ok-bdr:  rgba(110, 135, 85, 0.50);
+      --ok-t:    #a0c080;
+      --er-bg:   rgba(160, 72, 60, 0.20);
+      --er-bdr:  rgba(170, 78, 65, 0.45);
+      --er-t:    #d08878;
+
+      --r: 3px;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--t-body);
       min-height: 100vh;
-      padding: 40px 16px 60px;
+      padding: 56px 20px 80px;
     }
 
-    /* ─── Page shell ─────────────────────────────────────── */
     .shell {
-      max-width: 680px;
+      max-width: 640px;
       margin: 0 auto;
     }
 
-    /* ─── Header ─────────────────────────────────────────── */
+    /* ─── Page header ─────────────────────────────── */
     .page-header {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 40px;
     }
 
     .wordmark {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .14em;
+      display: inline-block;
+      font-family: 'Inter', sans-serif;
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: .26em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 12px;
+      color: var(--olive);
+      margin-bottom: 20px;
     }
-
-    .wordmark svg { opacity: .55; }
 
     .page-header h1 {
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: -.3px;
-      color: var(--text);
+      font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+      font-size: 40px;
+      font-weight: 400;
+      font-style: normal;
+      line-height: 1.1;
+      letter-spacing: -.5px;
+      color: var(--t-head);
+      margin-bottom: 11px;
     }
 
-    .page-header p {
-      margin-top: 5px;
-      font-size: 14px;
-      color: var(--muted);
+    .page-header h1 em {
+      font-style: italic;
+      color: var(--terra);
     }
 
-    /* ─── Card ───────────────────────────────────────────── */
+    .page-header .sub {
+      font-size: 13px;
+      font-weight: 300;
+      letter-spacing: .03em;
+      color: var(--olive);
+    }
+
+    /* ─── Form card ───────────────────────────────── */
     .card {
       background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 32px 36px 36px;
+      border: 1px solid var(--bdr);
+      border-radius: 4px;
+      padding: 42px 48px 48px;
     }
 
-    /* ─── Status banner ──────────────────────────────────── */
+    /* ─── Loading banner ──────────────────────────── */
     .banner {
       display: flex;
       align-items: center;
-      gap: 10px;
-      border-radius: 6px;
-      padding: 10px 14px;
-      font-size: 13px;
-      margin-bottom: 24px;
-      background: var(--warn-bg);
-      border: 1px solid var(--warn-border);
-      color: var(--warn-text);
+      gap: 11px;
+      border-radius: var(--r);
+      padding: 11px 16px;
+      font-size: 12.5px;
+      font-weight: 400;
+      letter-spacing: .02em;
+      margin-bottom: 32px;
+      background: rgba(194, 122, 97, 0.10);
+      border: 1px solid rgba(194, 122, 97, 0.30);
+      color: var(--terra);
     }
 
-    .banner.hidden  { display: none; }
-    .banner.ok      { background: var(--ok-bg);  border-color: var(--ok-border);  color: var(--ok-text); }
-    .banner.err     { background: var(--err-bg); border-color: var(--err-border); color: var(--err-text); }
-
-    .spin {
-      width: 14px; height: 14px; flex-shrink: 0;
-      border: 2px solid currentColor; border-top-color: transparent;
-      border-radius: 50%; animation: spin .7s linear infinite;
+    .banner.err {
+      background: var(--er-bg);
+      border-color: var(--er-bdr);
+      color: var(--er-t);
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ─── Section labels ─────────────────────────────────── */
-    .section {
-      font-size: 10.5px;
-      font-weight: 700;
-      letter-spacing: .12em;
+    .banner.hidden { display: none; }
+
+    .banner .spin {
+      width: 13px; height: 13px; flex-shrink: 0;
+      border: 1.5px solid rgba(194, 122, 97, 0.28);
+      border-top-color: var(--terra);
+      border-radius: 50%;
+      animation: rotate .85s linear infinite;
+    }
+
+    @keyframes rotate { to { transform: rotate(360deg); } }
+
+    /* ─── Section dividers ────────────────────────── */
+    .section-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 34px 0 18px;
+    }
+
+    .section-row:first-of-type { margin-top: 0; }
+
+    .section-tag {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: .2em;
       text-transform: uppercase;
-      color: var(--muted);
-      padding-bottom: 9px;
-      border-bottom: 1px solid var(--border);
-      margin: 26px 0 16px;
+      color: var(--olive);
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
-    .section:first-of-type { margin-top: 0; }
+    .section-rule {
+      flex: 1;
+      height: 1px;
+      background: var(--bdr);
+    }
 
-    /* ─── Grid ───────────────────────────────────────────── */
+    /* ─── Grid layout ─────────────────────────────── */
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px 18px;
+      gap: 18px 22px;
     }
 
     .col-2 { grid-column: 1 / -1; }
 
-    /* ─── Field ──────────────────────────────────────────── */
-    .field { display: flex; flex-direction: column; gap: 5px; }
+    /* ─── Field wrapper ───────────────────────────── */
+    .field { display: flex; flex-direction: column; gap: 8px; }
 
     label {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--label);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--t-label);
       user-select: none;
     }
 
-    label .req { color: #ef4444; margin-left: 2px; }
+    label .req { color: var(--terra); margin-left: 2px; font-weight: 400; }
 
-    input, select, textarea {
+    /* ─── Inputs, selects, textareas ──────────────── */
+    input,
+    select,
+    textarea {
       width: 100%;
-      background: var(--input-bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 9px 12px;
-      font-size: 14px;
-      font-family: inherit;
-      color: var(--text);
-      transition: border-color .15s, background .15s, box-shadow .15s;
+      background: var(--well);
+      border: 1px solid var(--bdr);
+      border-radius: var(--r);
+      padding: 13px 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      font-weight: 400;
+      color: var(--t-head);
+      transition: border-color .18s, background .18s;
       appearance: none;
+      -webkit-appearance: none;
     }
+
+    input::placeholder,
+    textarea::placeholder { color: var(--t-ph); }
+
+    input:hover, select:hover, textarea:hover { border-color: var(--bdr-h); }
 
     input:focus, select:focus, textarea:focus {
       outline: none;
-      border-color: var(--primary);
-      background: var(--input-focus);
-      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+      border-color: var(--bdr-f);
+      background: #2a3840;  /* slightly warmer, terracotta-tinted well */
     }
 
+    /* Select — olive chevron, terracotta on focus */
     select {
       cursor: pointer;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      padding-right: 36px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238e8e74' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 32px;
+      background-position: right 14px center;
     }
 
-    select:disabled {
-      opacity: .5;
-      cursor: not-allowed;
-      background-color: #f3f4f6;
+    select:focus {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23c27a61' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     }
 
-    textarea {
-      resize: vertical;
-      min-height: 90px;
-      line-height: 1.6;
+    select:disabled { opacity: .38; cursor: not-allowed; }
+
+    /* Option list colours (Chromium/Windows) */
+    select option { background: #2e3b3f; color: var(--t-head); }
+
+    textarea { resize: vertical; min-height: 98px; line-height: 1.65; }
+
+    /* Date picker icon — subtle */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      opacity: .28;
+      cursor: pointer;
     }
 
+    input[type="date"]:focus::-webkit-calendar-picker-indicator { opacity: .55; }
+
+    /* Remove number spinners */
     input[type="number"] { -moz-appearance: textfield; }
-    input[type="number"]::-webkit-outer-spin-button,
-    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
-    /* ─── Submit row ─────────────────────────────────────── */
+    /* ─── Actions row ─────────────────────────────── */
     .actions {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
-      margin-top: 28px;
-      gap: 12px;
+      margin-top: 36px;
+      padding-top: 24px;
+      border-top: 1px solid var(--bdr);
     }
 
-    .btn-reset {
-      font-size: 13px;
-      color: var(--muted);
+    .btn-clear {
+      font-family: 'Inter', sans-serif;
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: .06em;
+      color: var(--olive);
       background: none;
       border: none;
       cursor: pointer;
-      padding: 6px 4px;
+      padding: 4px 0;
       transition: color .15s;
     }
 
-    .btn-reset:hover { color: var(--text); }
+    .btn-clear:hover { color: var(--t-label); }
 
     .btn-submit {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      background: var(--primary);
-      color: #fff;
+      gap: 9px;
+      background: var(--terra);
+      color: #f5ede5;
       border: none;
-      border-radius: 6px;
-      padding: 11px 26px;
-      font-size: 14px;
+      border-radius: var(--r);
+      padding: 13px 30px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
       font-weight: 600;
+      letter-spacing: .13em;
+      text-transform: uppercase;
       cursor: pointer;
-      transition: background .15s, opacity .15s;
+      transition: background .15s;
     }
 
-    .btn-submit:hover:not(:disabled) { background: var(--primary-h); }
-    .btn-submit:disabled { opacity: .55; cursor: not-allowed; }
+    .btn-submit:hover:not(:disabled) { background: var(--terra-d); }
+    .btn-submit:disabled { opacity: .45; cursor: not-allowed; }
 
     .btn-submit .s-spin {
       display: none;
-      width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,.4);
-      border-top-color: #fff;
+      width: 13px; height: 13px;
+      border: 1.5px solid rgba(245, 237, 229, 0.30);
+      border-top-color: #f5ede5;
       border-radius: 50%;
-      animation: spin .7s linear infinite;
+      animation: rotate .85s linear infinite;
     }
 
-    .btn-submit.loading .s-spin  { display: block; }
-    .btn-submit.loading .s-icon  { display: none; }
-    .btn-submit.loading .s-label { opacity: .75; }
+    .btn-submit.loading .s-spin { display: block; }
+    .btn-submit.loading .s-icon { display: none; }
 
-    /* ─── Result toast ───────────────────────────────────── */
+    /* ─── Result toast ────────────────────────────── */
     #toast {
-      margin-top: 16px;
-      border-radius: 6px;
-      padding: 12px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      line-height: 1.5;
+      margin-top: 18px;
+      border-radius: var(--r);
+      padding: 13px 18px;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.55;
       display: none;
     }
 
-    #toast.ok  { display: block; background: var(--ok-bg);  border: 1px solid var(--ok-border);  color: var(--ok-text); }
-    #toast.err { display: block; background: var(--err-bg); border: 1px solid var(--err-border); color: var(--err-text); }
+    #toast.ok  { display: block; background: var(--ok-bg); border: 1px solid var(--ok-bdr); color: var(--ok-t); }
+    #toast.err { display: block; background: var(--er-bg); border: 1px solid var(--er-bdr); color: var(--er-t); }
 
-    /* ─── Footer ─────────────────────────────────────────── */
+    /* ─── Footer ──────────────────────────────────── */
     footer {
       text-align: center;
-      margin-top: 22px;
-      font-size: 12px;
-      color: var(--muted);
+      margin-top: 28px;
+      font-size: 10.5px;
+      font-weight: 400;
+      letter-spacing: .06em;
+      color: rgba(142, 142, 116, 0.35);
     }
 
-    /* ─── Responsive ─────────────────────────────────────── */
-    @media (max-width: 540px) {
-      .card { padding: 22px 18px 26px; }
+    /* ─── Responsive ──────────────────────────────── */
+    @media (max-width: 520px) {
+      body { padding: 36px 14px 60px; }
+      .card { padding: 28px 22px 34px; }
       .grid { grid-template-columns: 1fr; }
       .col-2 { grid-column: auto; }
+      .page-header h1 { font-size: 30px; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
 
-    <!-- Header -->
+    <!-- ── Page header ──────────────────────────────── -->
     <header class="page-header">
-      <div class="wordmark">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-             stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-        </svg>
-        SlateStudio
-      </div>
-      <h1>Report Hours</h1>
-      <p>Log your worked hours for the selected activity date.</p>
+      <p class="wordmark">SlateStudio</p>
+      <h1>Report <em>Hours</em></h1>
+      <p class="sub">Log your worked hours for the selected activity date.</p>
     </header>
 
-    <!-- Card -->
+    <!-- ── Form card ────────────────────────────────── -->
     <div class="card">
 
-      <!-- Loading / status banner -->
+      <!-- Loading / error banner -->
       <div class="banner" id="banner">
         <div class="spin"></div>
         <span id="banner-text">Loading team data from the database…</span>
@@ -300,10 +375,13 @@
 
       <form id="hour-form" novalidate autocomplete="off">
 
-        <!-- ─ WHO & WHERE ──────────────────────────────── -->
-        <p class="section">Who &amp; Where</p>
-        <div class="grid">
+        <!-- ─────────────── WHO & WHERE ────────────── -->
+        <div class="section-row">
+          <span class="section-tag">Who &amp; Where</span>
+          <div class="section-rule"></div>
+        </div>
 
+        <div class="grid">
           <div class="field">
             <label for="employee_name">Your Name <span class="req">*</span></label>
             <select id="employee_name" name="employee_name" required disabled>
@@ -324,13 +402,15 @@
               <option value="">— Loading… —</option>
             </select>
           </div>
-
         </div>
 
-        <!-- ─ WHEN & HOW MUCH ────────────────────────── -->
-        <p class="section">When &amp; How Much</p>
-        <div class="grid">
+        <!-- ─────────────── WHEN & HOW MUCH ─────────── -->
+        <div class="section-row">
+          <span class="section-tag">When &amp; How Much</span>
+          <div class="section-rule"></div>
+        </div>
 
+        <div class="grid">
           <div class="field">
             <label for="activity_date">Activity Date <span class="req">*</span></label>
             <input type="date" id="activity_date" name="activity_date" required />
@@ -351,13 +431,15 @@
               <option value="monthly">Monthly</option>
             </select>
           </div>
-
         </div>
 
-        <!-- ─ WHAT WAS DONE ──────────────────────────── -->
-        <p class="section">What Was Done</p>
-        <div class="grid">
+        <!-- ─────────────── WHAT WAS DONE ───────────── -->
+        <div class="section-row">
+          <span class="section-tag">What Was Done</span>
+          <div class="section-rule"></div>
+        </div>
 
+        <div class="grid">
           <div class="field col-2">
             <label for="activity_description">Activity Description <span class="req">*</span></label>
             <textarea id="activity_description" name="activity_description"
@@ -365,49 +447,48 @@
           </div>
 
           <div class="field col-2">
-            <label for="activity_comments">Comments / Notes</label>
+            <label for="activity_comments">Comments &amp; Notes</label>
             <textarea id="activity_comments" name="activity_comments"
                       placeholder="Blockers, highlights, context…"></textarea>
           </div>
-
         </div>
 
-        <!-- ─ Actions ──────────────────────────────────── -->
+        <!-- ─────────────── ACTIONS ──────────────────── -->
         <div class="actions">
-          <button type="button" class="btn-reset" id="btn-reset">Clear form</button>
+          <button type="button" class="btn-clear" id="btn-reset">Clear form</button>
           <button type="submit" class="btn-submit" id="btn-submit">
             <div class="s-spin"></div>
-            <svg class="s-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+            <svg class="s-icon" xmlns="http://www.w3.org/2000/svg" width="12" height="12"
                  viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="22" y1="2" x2="11" y2="13"/>
               <polygon points="22 2 15 22 11 13 2 9 22 2"/>
             </svg>
-            <span class="s-label">Submit Hours</span>
+            Submit Hours
           </button>
         </div>
 
       </form>
 
-      <!-- Result toast -->
+      <!-- Result feedback -->
       <div id="toast"></div>
 
     </div><!-- /.card -->
 
-    <footer>SlateStudio Time Tracker &nbsp;·&nbsp; Powered by N8N &amp; Supabase</footer>
+    <footer>TimeTracker &nbsp;&middot;&nbsp; SlateStudio Internal Tool</footer>
 
   </div><!-- /.shell -->
 
   <script>
-    /* ═══════════════════════════════════════════════════════════
-       Configuration
-    ═══════════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       Configuration — update these if N8N URLs change
+    ═══════════════════════════════════════════════════ */
     const OPTIONS_URL = 'https://slatestudio.app.n8n.cloud/webhook/custom-form-options';
     const SUBMIT_URL  = 'https://slatestudio.app.n8n.cloud/webhook/custom-form';
 
-    /* ═══════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        DOM refs
-    ═══════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     const form      = document.getElementById('hour-form');
     const banner    = document.getElementById('banner');
     const bannerTxt = document.getElementById('banner-text');
@@ -415,9 +496,9 @@
     const btnReset  = document.getElementById('btn-reset');
     const toast     = document.getElementById('toast');
 
-    /* ═══════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        Helpers
-    ═══════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     function todayISO() {
       return new Date().toISOString().slice(0, 10);
     }
@@ -434,14 +515,11 @@
     }
 
     function setBanner(state, text) {
-      // state: 'loading' | 'ok' | 'err' | 'hidden'
       banner.className = state === 'hidden' ? 'banner hidden'
-                       : state === 'ok'     ? 'banner ok'
                        : state === 'err'    ? 'banner err'
                        : 'banner';
-
       const spinEl = banner.querySelector('.spin');
-      if (spinEl) spinEl.style.display = state === 'loading' ? 'block' : 'none';
+      if (spinEl) spinEl.style.display = state === 'loading' ? '' : 'none';
       bannerTxt.textContent = text || '';
     }
 
@@ -463,9 +541,9 @@
       clearToast();
     }
 
-    /* ═══════════════════════════════════════════════════════════
-       Load dynamic dropdown options
-    ═══════════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       Load dynamic dropdown options on page load
+    ═══════════════════════════════════════════════════ */
     async function loadOptions() {
       setBanner('loading', 'Loading team data from the database…');
       try {
@@ -473,16 +551,13 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
-        const employees = Array.isArray(data.employees) ? data.employees
-                        : typeof data.employees === 'string' ? JSON.parse(data.employees) : [];
-        const clients   = Array.isArray(data.clients)   ? data.clients
-                        : typeof data.clients   === 'string' ? JSON.parse(data.clients)   : [];
-        const projects  = Array.isArray(data.projects)  ? data.projects
-                        : typeof data.projects  === 'string' ? JSON.parse(data.projects)  : [];
+        const toArr = v =>
+          Array.isArray(v) ? v :
+          typeof v === 'string' ? JSON.parse(v) : [];
 
-        fillSelect('employee_name', employees);
-        fillSelect('client_name',   clients);
-        fillSelect('project_name',  projects);
+        fillSelect('employee_name', toArr(data.employees));
+        fillSelect('client_name',   toArr(data.clients));
+        fillSelect('project_name',  toArr(data.projects));
 
         setBanner('hidden');
       } catch (err) {
@@ -491,18 +566,19 @@
       }
     }
 
-    /* ═══════════════════════════════════════════════════════════
+    /* ═══════════════════════════════════════════════════
        Form submission
-    ═══════════════════════════════════════════════════════════ */
+    ═══════════════════════════════════════════════════ */
     form.addEventListener('submit', async e => {
       e.preventDefault();
       clearToast();
 
-      // Basic client-side validation
+      // Required-field validation
       for (const el of form.querySelectorAll('[required]')) {
         if (!el.value.trim()) {
           el.focus();
-          showToast('err', `Please fill in the required field: ${el.labels?.[0]?.textContent?.replace('*','').trim() || el.name}`);
+          const fieldName = el.labels?.[0]?.textContent?.replace('*', '').trim() || el.name;
+          showToast('err', `Please fill in: ${fieldName}`);
           return;
         }
       }
@@ -527,16 +603,15 @@
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify(payload)
         });
-
         const data = await res.json().catch(() => ({}));
 
         if (res.ok) {
-          showToast('ok', data.message
-            || `${payload.hours}h submitted for ${payload.activity_date}. Thank you!`);
+          showToast('ok', data.message ||
+            `${payload.hours}h submitted for ${payload.activity_date}. Thank you.`);
           resetForm();
         } else {
-          showToast('err', data.message
-            || 'Submission failed. Check your inputs and try again.');
+          showToast('err', data.message ||
+            'Submission failed. Check your inputs and try again.');
         }
       } catch {
         showToast('err', 'Network error. Check your connection and try again.');
@@ -546,14 +621,11 @@
       }
     });
 
-    /* ═══════════════════════════════════════════════════════════
-       Reset button
-    ═══════════════════════════════════════════════════════════ */
+    /* ═══════════════════════════════════════════════════
+       Initialise
+    ═══════════════════════════════════════════════════ */
     btnReset.addEventListener('click', resetForm);
 
-    /* ═══════════════════════════════════════════════════════════
-       Init
-    ═══════════════════════════════════════════════════════════ */
     document.addEventListener('DOMContentLoaded', () => {
       form.activity_date.value = todayISO();
       loadOptions();
